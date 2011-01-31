@@ -1,0 +1,7 @@
+Revision history for Perl extension Linux::DVB::DVBT::TS.
+
+0.01  Mon Jan 31 15:59:56 2011
+	- original version
+	- First test of compiling libmpeg2 on various platforms
+		
+
