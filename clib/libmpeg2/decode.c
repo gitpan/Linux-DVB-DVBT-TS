@@ -23,11 +23,6 @@
 
 #include "config.h"
 
-//#define SDP_DEBUG
-#ifdef SDP_DEBUG
-#include <stdio.h>
-#endif
-
 #include <string.h>	/* memcmp/memset, try to remove */
 #include <stdlib.h>
 #include <inttypes.h>
@@ -185,9 +180,6 @@ mpeg2_state_t mpeg2_parse (mpeg2dec_t * mpeg2dec)
 		    /* filled the chunk buffer without finding a start code */
 		    mpeg2dec->bytes_since_tag += size_chunk;
 		    mpeg2dec->action = seek_chunk;
-#ifdef SDP_DEBUG
-		    fprintf(stderr, "INVALID: filled the chunk buffer without finding a start code\n") ;
-#endif
 		    return STATE_INVALID;
 		}
 	    }
@@ -207,25 +199,14 @@ mpeg2_state_t mpeg2_parse (mpeg2dec_t * mpeg2dec)
     mpeg2dec->action = mpeg2_seek_header;
     switch (mpeg2dec->code) {
     case 0x00:
-#ifdef SDP_DEBUG
-    	if (mpeg2dec->state == STATE_INVALID)
-    	fprintf(stderr, "INVALID: code = 0x%02x state = %d\n", mpeg2dec->code, mpeg2dec->state) ;
-#endif
-    	return mpeg2dec->state;
+	return mpeg2dec->state;
     case 0xb3:
     case 0xb7:
     case 0xb8:
-#ifdef SDP_DEBUG
-    	if (mpeg2dec->state != STATE_SLICE)
-    	fprintf(stderr, "INVALID: code = 0x%02x state = %d\n", mpeg2dec->code, mpeg2dec->state) ;
-#endif
-    	return (mpeg2dec->state == STATE_SLICE) ? STATE_SLICE : STATE_INVALID;
+	return (mpeg2dec->state == STATE_SLICE) ? STATE_SLICE : STATE_INVALID;
     default:
-		mpeg2dec->action = seek_chunk;
-#ifdef SDP_DEBUG
-		    fprintf(stderr, "INVALID: code = 0x%02x\n", mpeg2dec->code) ;
-#endif
-		return STATE_INVALID;
+	mpeg2dec->action = seek_chunk;
+	return STATE_INVALID;
     }
 }
 
@@ -299,9 +280,6 @@ mpeg2_state_t mpeg2_parse_header (mpeg2dec_t * mpeg2dec)
 	    continue;
 
 	default:
-#ifdef SDP_DEBUG
-    	fprintf(stderr, "mpeg2_parse_header(): header not legal in this state: code = 0x%02x state = %d\n", mpeg2dec->code, mpeg2dec->state) ;
-#endif
 	    mpeg2dec->action = mpeg2_seek_header;
 	    return STATE_INVALID;
 	}

@@ -1,6 +1,4 @@
-ifndef libdvb_ts_lib
-libdvb_ts_lib := .
-endif
+libdvb_ts_lib ?= .
 
 CFLAGS += -I$(libdvb_ts_lib)
 

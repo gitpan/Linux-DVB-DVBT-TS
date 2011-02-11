@@ -67,7 +67,7 @@ void init_put_bits(PutBitContext *s,
 #endif
 }
 
-#ifdef CONFIG_ENCODERS
+//#ifdef CONFIG_ENCODERS
 
 /* return the number of bits output */
 int64_t get_bit_count(PutBitContext *s)
@@ -88,7 +88,7 @@ void align_put_bits(PutBitContext *s)
 #endif
 }
 
-#endif //CONFIG_ENCODERS
+//#endif //CONFIG_ENCODERS
 
 /* pad the end of the output stream with zeros */
 void flush_put_bits(PutBitContext *s)

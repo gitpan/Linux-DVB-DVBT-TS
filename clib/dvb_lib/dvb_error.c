@@ -1,5 +1,5 @@
 /*
- * ts_parse.c
+ * dvb_error.c
  *
  *  Created on: 28 Apr 2010
  *      Author: sdprice1
@@ -41,6 +41,7 @@ static char *DVB_ERRORS[256] = {
 	[-ERR_SELECT]			= "error waiting for data",
 	[-ERR_TIMEOUT]			= "timed out waiting for data",
 	[-ERR_EOF]				= "unexpected EOF",
+	[-ERR_OVERFLOW]			= "dvb buffer overflow",
 
 	[-ERR_FILE]				= "file error",
 	[-ERR_FILE_SEEK]		= "file seek error",

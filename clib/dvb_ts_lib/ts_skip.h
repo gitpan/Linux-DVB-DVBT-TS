@@ -55,6 +55,8 @@ struct TS_cut_data {
 	int debug ;
 
 	int split_count ;
+	unsigned split_pkt ;
+
 	char fname[256] ;
 	char ofname[256] ;
 	int cut_file ;
@@ -74,6 +76,7 @@ struct TS_cut_data {
 void add_cut(struct list_head *cut_list, unsigned start, unsigned end) ;
 void _print_cut_list(char *fn, struct list_head *cut_list) ;
 void free_cut_list(struct list_head *cut_list) ;
+void remove_ext(char *src, char *dest) ;
 
 
 #endif /* TS_SKIP_H_ */

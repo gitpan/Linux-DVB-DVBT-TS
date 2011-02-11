@@ -8,6 +8,47 @@ Linux::DVB::DVBT::TS - Transport Stream utilities
 
 	use Linux::DVB::DVBT::TS ;
   
+ 	my $settings_href = {'debug' => $debug} ;
+ 	
+	# get file information  
+ 	my %info = info($filename, $settings_href) ;
+		
+	# Splitting file...
+	ts_split($filename, $ofilename, \@cuts, $settings_href) ;
+
+	# Cutting file...
+	ts_cut($filename, $ofilename, \@cuts, $settings_href) ;
+  
+	# repair a file...
+	my %stats = repair($filename, $ofilename, \&error_display) ;  
+ 
+ 	sub error_display
+	{
+		my ($info_href) = @_ ;
+		print "ERROR: PID $info_href->{'pidinfo'}{'pid'} $info_href->{'error'}{'str'} [$info_href->{'pidinfo'}{'pktnum'}]\n" ;
+	}
+ 	
+  
+	# Parse the file, calling subroutines on each frame...
+	parse($filename, {
+		'mpeg2_rgb_callback' = \&colour_callback
+		'user_data'		=> {
+			'outname'		=> "$outdir/$base%03d.ppm",
+		},
+	}) ;
+	
+	sub colour_callback
+	{
+		my ($tsreader, $info_href, $width, $height, $data, $user_data_href) = @_ ;
+		
+		## save image
+		write_ppm($user_data_href->{'outname'}, $info_href->{'framenum'},
+			$width, $height, 
+			$data, 
+		) ;
+	}
+	
+	
 
 =head1 DESCRIPTION
 
@@ -389,9 +430,26 @@ use File::Path ;
 use Data::Dumper ;
 
 #============================================================================================
+# EXPORTER
+#============================================================================================
+require Exporter;
+our @ISA = qw(Exporter);
+
+our @EXPORT = qw/
+	error_str
+	info
+	parse
+	parse_stop
+	repair
+	ts_cut
+	ts_split
+/ ;
+
+
+#============================================================================================
 # GLOBALS
 #============================================================================================
-our $VERSION = '0.01' ;
+our $VERSION = '0.02' ;
 our $DEBUG = 0 ;
 
 #============================================================================================

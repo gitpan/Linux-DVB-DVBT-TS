@@ -88,6 +88,7 @@ struct AVOption;
 #    define always_inline inline
 #endif
 
+
 #ifdef CONFIG_WIN32
 
 /* windows */

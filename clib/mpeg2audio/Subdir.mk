@@ -1,6 +1,4 @@
-ifndef mpeg2audio
-mpeg2audio := ./mpeg2audio
-endif
+mpeg2audio ?= ./mpeg2audio
 
 CFLAGS += -I$(mpeg2audio)
 

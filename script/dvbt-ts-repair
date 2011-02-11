@@ -37,7 +37,7 @@ our $VERSION = '1.000' ;
 	printf "Video duration: %02d:%02d:%02d\n", $info{'duration'}{'hh'}, $info{'duration'}{'mm'}, $info{'duration'}{'ss'} ;
 	
 	## Now repair the file
-	my %stats = Linux::DVB::DVBT::TS::repair($filename, $ofilename, \&error_display) ;
+	my %stats = repair($filename, $ofilename, \&error_display) ;
 	
 
 	print "Repair statistics:\n" ;

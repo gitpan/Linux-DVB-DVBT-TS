@@ -109,14 +109,14 @@ typedef int32_t MPA_INT;
 #define HEADER_SIZE 4
 #define BACKSTEP_SIZE 512
 
-#define uint8_t unsigned char
-#define int8_t  char
-#define uint32_t unsigned long
-#define int32_t long
-#define uint16_t unsigned short
-#define int16_t short
-        typedef signed __int64   int64_t;
-        typedef unsigned __int64 uint64_t;
+//#define uint8_t unsigned char
+//#define int8_t  char
+//#define uint32_t unsigned long
+//#define int32_t long
+//#define uint16_t unsigned short
+//#define int16_t short
+//        typedef signed __int64   int64_t;
+//        typedef unsigned __int64 uint64_t;
 
 static  inline int ff_mpa_check_header(uint32_t header){
     /* header */

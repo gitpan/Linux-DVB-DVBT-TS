@@ -8,7 +8,7 @@ use File::Basename ;
 
 use Linux::DVB::DVBT::TS ;
 
-our $VERSION = '1.000' ;
+our $VERSION = '1.002' ;
 
     my $progname = basename $0 ;
 
@@ -67,7 +67,23 @@ our $VERSION = '1.000' ;
 		print "Unable to find any cuts in $cutfilename\n" ;
 		exit 1 ;
 	}
+	
+	
+	if ($DEBUG)
+	{
+		print "Cuts:\n" ;
+		foreach (@cuts)
+		{
+			print "  pkt=$_->{start_pkt}:$_->{end_pkt}\n" ;
+		}
+		print "\n" ;
+		
+	}
 
+
+	## If not specified, set debug level to 1 so we get some feedback on when the fiels are created
+	$dbg_ts = 1 unless defined($dbg_ts) ;
+	
 	## Cut the file
 	my $settings_href = {
 		'debug'			=> $dbg_ts,
@@ -75,12 +91,12 @@ our $VERSION = '1.000' ;
 	if ($split)
 	{
 		print "Splitting file...\n" ;
-		Linux::DVB::DVBT::TS::ts_split($filename, $ofilename, \@cuts, $settings_href) ;
+		ts_split($filename, $ofilename, \@cuts, $settings_href) ;
 	}
 	else
 	{
 		print "Cutting file...\n" ;
-		Linux::DVB::DVBT::TS::ts_cut($filename, $ofilename, \@cuts, $settings_href) ;
+		ts_cut($filename, $ofilename, \@cuts, $settings_href) ;
 	}
 	
 
@@ -122,6 +138,7 @@ Options:
        -verbose level       set verbosity level
        -help                brief help message
        -man                 full documentation
+       -split               split file
        
 =head1 OPTIONS
 
@@ -143,6 +160,10 @@ Set verbosity level. Higher values show more information.
 
 Set debug level. Higher levels show more debugging information (only really of any interest to developers!)
 
+=item B<-split>
+
+Instead of deleting the cut regions, split the source file into multiple files at the cut region boundaries
+
 =back
 
 =head1 DESCRIPTION
@@ -150,7 +171,23 @@ Set debug level. Higher levels show more debugging information (only really of a
 Script that uses the perl Linux::DVB::DVBT::TS package to provide transport stream video file functions.
  
 Runs the transport stream cut utility on a file, creating a new file (or files) with the specified regions
-removed.
+removed. Alternatively, using the -split option, splits the file at each start and end boundary.
+
+The cut file format is in the form of lines containing:
+
+	ad=[start packet]:[end packet]
+
+Each line specifies an advert region in transport stream packet numbers. 
+
+for example, the following defines 4 advert regions (the first region starting at the start of the video):
+
+	ad=0:344787
+	ad=970972:1417421
+	ad=2085377:2477139
+	ad=3472767:3856038
+
+
+In -split mode, the specified B<outfile> name will be used but suffixed with a count starting at 1.  
 
 
 =head1 FURTHER DETAILS

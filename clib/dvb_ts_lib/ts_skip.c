@@ -67,3 +67,20 @@ struct TS_cut   *cutitem;
 
 }
 
+
+//---------------------------------------------------------------------------------------------------------
+void remove_ext(char *src, char *dest)
+{
+char *p ;
+
+	strcpy(dest, src) ;
+
+	// replace rindex()
+	p = dest + strlen(dest) - 1 ;
+	while ((p != dest) && (*p != '.'))
+	{
+		--p ;
+	}
+
+	if (*p == '.') *p = 0 ;
+}

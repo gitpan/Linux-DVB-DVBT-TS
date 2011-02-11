@@ -1,6 +1,4 @@
-ifndef libmpeg2
-libmpeg2 := .
-endif
+libmpeg2 ?= .
 
 CFLAGS += -I$(libmpeg2) -I$(libmpeg2)/convert -I$(libmpeg2)/include
 

@@ -85,7 +85,7 @@ static unsigned prev_ok=1;
 			}
 		}
 
-		if (hook_data->debug)
+		if (hook_data->debug >= 10)
 		{
 			printf("-> TS PID 0x%x (%u) [%u] :: ok=%d\n",
 					pidinfo->pid, pidinfo->pid,
@@ -134,13 +134,8 @@ struct TS_reader *tsreader ;
 	tsreader->user_data = &hook_data ;
 	tsreader->debug = debug ;
 
-	strcpy(hook_data.fname, filename) ;
-	char *p = rindex(hook_data.fname, '.') ;
-	*p=0 ;
-
-	strcpy(hook_data.ofname, ofilename) ;
-	p = rindex(hook_data.ofname, '.') ;
-	*p=0 ;
+	remove_ext(filename, hook_data.fname) ;
+	remove_ext(ofilename, hook_data.ofname) ;
 
 	// parse data
     ts_parse(tsreader) ;

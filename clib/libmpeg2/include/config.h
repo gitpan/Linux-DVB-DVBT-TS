@@ -1,38 +1,41 @@
-/* include/config.h.  Generated from config.h.in by configure.  */
-/* include/config.h.in.  Generated from configure.ac by autoheader.  */
-
+/* i586-linux-thread-multi */
+#ifndef CONFIG_H
+#define CONFIG_H
+	
 /* autodetect accelerations */
-#define ACCEL_DETECT /**/
+#define ACCEL_DETECT 
 
 /* Define if building universal (internal helper macro) */
-/* #undef AC_APPLE_UNIVERSAL_BUILD */
+#undef AC_APPLE_UNIVERSAL_BUILD
 
 /* alpha architecture */
-/* #undef ARCH_ALPHA */
+#undef ARCH_ALPHA
 
 /* ARM architecture */
-/* #undef ARCH_ARM */
+#undef ARCH_ARM 
 
 /* ppc architecture */
-/* #undef ARCH_PPC */
+#undef ARCH_PPC
 
 /* sparc architecture */
-/* #undef ARCH_SPARC */
+#undef ARCH_SPARC
 
 /* x86 architecture */
-#define ARCH_X86 /**/
+#undef ARCH_X86
+
+#define ARCH_X86
 
 /* maximum supported data alignment */
-#define ATTRIBUTE_ALIGNED_MAX 64
+#define ATTRIBUTE_ALIGNED_MAX 32
 
 /* debug mode configuration */
-/* #undef DEBUG */
+#undef DEBUG
 
 /* Define to 1 if you have the <altivec.h> header. */
 /* #undef HAVE_ALTIVEC_H */
 
 /* Define if you have the `__builtin_expect' function. */
-#define HAVE_BUILTIN_EXPECT /**/
+#define HAVE_BUILTIN_EXPECT 1
 
 /* Define to 1 if you have the `ftime' function. */
 #define HAVE_FTIME 1
@@ -44,7 +47,7 @@
 #define HAVE_INTTYPES_H 1
 
 /* Define to 1 if you have the <io.h> header file. */
-/* #undef HAVE_IO_H */
+#undef HAVE_IO_H 
 
 /* Define to 1 if you have the <memory.h> header file. */
 #define HAVE_MEMORY_H 1
@@ -82,8 +85,9 @@
 /* Define to 1 if you have the <unistd.h> header file. */
 #define HAVE_UNISTD_H 1
 
+
 /* mpeg2dec profiling */
-/* #undef MPEG2DEC_GPROF */
+#undef MPEG2DEC_GPROF
 
 /* Name of package */
 #define PACKAGE "libmpeg2"
@@ -103,67 +107,55 @@
 /* Define to the version of this package. */
 #define PACKAGE_VERSION "0.5.1"
 
+
+
 /* Define as the return type of signal handlers - this is now ALWAYS 'void' */
 #define RETSIGTYPE void
 
-/* The size of `char', as computed by sizeof. */
-/* #undef SIZEOF_CHAR */
-
-/* The size of `int', as computed by sizeof. */
-/* #undef SIZEOF_INT */
-
-/* The size of `long', as computed by sizeof. */
-/* #undef SIZEOF_LONG */
-
-/* The size of `short', as computed by sizeof. */
-/* #undef SIZEOF_SHORT */
-
-/* The size of `void*', as computed by sizeof. */
-/* #undef SIZEOF_VOIDP */
-
-/* Define to 1 if you have the ANSI C header files. */
-#define STDC_HEADERS 1
-
-/* Define to 1 if you can safely include both <sys/time.h> and <time.h>. */
-#define TIME_WITH_SYS_TIME 1
-
-/* Version number of package */
-#define VERSION "0.5.1"
 
 /* Define WORDS_BIGENDIAN to 1 if your processor stores words with the most
    significant byte first (like Motorola and SPARC, unlike Intel). */
-#if defined AC_APPLE_UNIVERSAL_BUILD
-# if defined __BIG_ENDIAN__
-#  define WORDS_BIGENDIAN 1
-# endif
-#else
-# ifndef WORDS_BIGENDIAN
-/* #  undef WORDS_BIGENDIAN */
-# endif
-#endif
+
+#undef WORDS_BIGENDIAN
+#undef SHORT_BIGENDIAN
+#undef WORDS_LITTLEENDIAN
+#define SHORT_LITTLEENDIAN	1
+
 
 /* Number of bits in a file offset, on hosts where this is settable. */
 #define _FILE_OFFSET_BITS 64
 
 /* Define for large files, on AIX-style hosts. */
-/* #undef _LARGE_FILES */
+#define _LARGE_FILES 1
 
 /* Define to empty if `const' does not conform to ANSI C. */
-/* #undef const */
+/* #define const  */
 
 /* Define to `__inline__' or `__inline' if that's what the C compiler
    calls it, or to nothing if 'inline' is not supported under any name.  */
 #ifndef __cplusplus
-#define inline __attribute__ ((__always_inline__))
+
 #endif
 
 /* Define as `__restrict' if that's what the C compiler calls it, or to
    nothing if it is not supported. */
 #define restrict __restrict__
 
+/* Work around a bug in Sun C++: it does not support _Restrict, even
+   though the corresponding Sun C compiler does, which causes
+   "#define restrict _Restrict" in the previous line.  Perhaps some future
+   version of Sun C++ will work with _Restrict; if so, it'll probably
+   define __RESTRICT, just as Sun C does.  */
+#if defined __SUNPRO_CC && !defined __RESTRICT
+# define _Restrict
+#endif
+
 /* Define to `unsigned int' if <sys/types.h> does not define. */
-/* #undef size_t */
+
 
 /* Define to empty if the keyword `volatile' does not work. Warning: valid
    code using `volatile' can become incorrect without. Disable with care. */
-/* #undef volatile */
+/* #define CONST  */
+
+#endif
+

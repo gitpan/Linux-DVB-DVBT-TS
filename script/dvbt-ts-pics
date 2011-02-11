@@ -48,7 +48,7 @@ our $VERSION = '1.000' ;
 	}
 
 	## First get general information (including file duration)
-	my %info = Linux::DVB::DVBT::TS::info($filename, {
+	my %info = info($filename, {
 		'debug'			=> $dbg_ts,
 	}) ;
 	if ($info{'error'})
@@ -78,7 +78,7 @@ our $VERSION = '1.000' ;
 	{
 		$settings_href->{'mpeg2_callback'} = \&grey_callback ;
 	}
-	Linux::DVB::DVBT::TS::parse($filename, $settings_href) ;
+	parse($filename, $settings_href) ;
 
 	
 
