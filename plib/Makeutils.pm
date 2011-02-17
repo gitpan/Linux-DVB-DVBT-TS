@@ -60,14 +60,15 @@ our @EXPORT = qw/
 	have_func
 	arch_name
 	get_config
+	get_makemakerdflt
 / ;
 
 
 #============================================================================================
 # GLOBALS
 #============================================================================================
-our $VERSION = '0.02' ;
-our $DEBUG = 0 ;
+our $VERSION = '0.07' ;
+our $DEBUG ;
 
 our %ModuleInfo ;
 
@@ -79,6 +80,8 @@ our %ModuleInfo ;
 sub init 
 {
 	my ($modname) = @_ ;
+	
+	print "(Using Makeutils.pm version $VERSION)\n" ;
 	
 	my $name = $modname ;
 	unless ($name)
@@ -209,7 +212,7 @@ sub get_makeopts
 		grep $_ eq '-D', @main::ARGV
 	) 
 	{
-		$DEBUG = 1 ;
+		$Makeutils::DEBUG = 1 ;
 	} 
 	
 	## -d = debug 
@@ -361,7 +364,7 @@ sub add_clibs
 				my $func = $clibs_href->{$lib}{'config'}{'func'} ;
 				my $config_h = "$basedir/$lib/$clibs_href->{$lib}{'config'}{'file'}" ;
 
-				print "creating config file... " ;
+				print "creating config file $config_h ... " ;
 				&$func($config_h, %{$ModuleInfo{'config'}}) ;
 				print "ok\n" ;
 			}
@@ -408,10 +411,10 @@ sub _create_includes_list
 }
 
 ##-------------------------------------------------------------------------------------------
-sub c_try
+sub _c_try
 {
-	my ($msg, $code, $ok_val, $cflags) = @_ ;
-	
+	my ($cc, $target, $msg, $code, $ok_val, $cflags, $exec_out_ref) = @_ ;
+
 if ($DEBUG && $msg)
 {
 print "\n-------------------------\n" ;
@@ -419,19 +422,21 @@ print "\n-------------------------\n" ;
 
 	print "$msg... " if $msg ;
 
+	$ok_val=1 unless defined $ok_val ;
+	
 	$cflags ||= "" ;
 	my $ok = "" ;
 	my $conftest = "conftest.c" ;
 	my $conferr = "conftest.err" ;
-	my $confobj = "conftest.o" ;
 	
 	open my $fh, ">$conftest" or die "Error: unable to create test file $conftest : $!";
 	print $fh $code ;
 	close $fh ;
 	
-	unlink $confobj ;
+	unlink $target ;
 	
-	my $rc = system("$Config{'cc'} -c $conftest $cflags -o $confobj 2> $conferr") ;
+	my $cmd = "$cc $conftest $cflags 2> $conferr" ;
+	my $rc = system($cmd) ;
 	my $errstr ;
 	open my $fh, "<$conferr" ;
 	if ($fh)
@@ -450,30 +455,40 @@ print "- Code:\n" ;
 print "- - - - - - - - - - - - -\n" ;
 print "$code\n" ;
 print "- - - - - - - - - - - - -\n" ;
+print "- Cmd: $cmd\n" ;
+print "- - - - - - - - - - - - -\n" ;
+print "- Target: $target [size=", -s $target, "]\n" ;
+print "- - - - - - - - - - - - -\n" ;
 print "- Compile errors:\n" ;
 print "- - - - - - - - - - - - -\n" ;
 print "$errstr" ;
 }		
 
 	# check for errors
-	if ( ($rc==0) && (!$errstr) && (-s $confobj) )
+	if ( ($rc==0) && (!$errstr) && (-s $target) )
 	{
 		# stop here because this worked
 		$ok = $ok_val ;
+		
+#		## See if we want to run the code
+#		if ($exec_out_ref)
+#		{
+#			my @out = `./$conftest` ;
+#		}
 	}
 	
 	unlink $conftest ;
 	unlink $conferr ;
-	unlink $confobj ;
 
 	if ($msg)
 	{
 		if ($DEBUG)
 		{
 			print "- - - - - - - - - - - - -\n" ;
-			print "- Return: " ;
+			print "- Return: [ok=$ok] " ;
 		}
-		print $ok ? "$ok\n" : "no\n" ;		
+#		print $ok ? "$ok\n" : "no\n" ;		
+		print $ok ? "yes\n" : "no\n" ;		
 	}
 
 if ($DEBUG && $msg)
@@ -481,6 +496,37 @@ if ($DEBUG && $msg)
 print "-------------------------\n\n" ;
 }		
 
+
+	return $ok ;
+}
+
+
+##-------------------------------------------------------------------------------------------
+sub c_try
+{
+	my ($msg, $code, $ok_val, $cflags, $exec_out_ref) = @_ ;
+
+	my $confobj = "conftest.o" ;
+	my $cc = "$Config{'cc'}  -o $confobj -c" ;
+
+	my $ok = _c_try($cc, $confobj, $msg, $code, $ok_val, $cflags, $exec_out_ref) ;
+
+	unlink $confobj ;
+
+	return $ok ;
+}
+
+##-------------------------------------------------------------------------------------------
+sub c_try_link
+{
+	my ($msg, $code, $ok_val, $cflags, $exec_out_ref) = @_ ;
+
+	my $target = "conftest$Config{_exe}" ;
+	my $cc = "$Config{'cc'} -o $target" ;
+
+	my $ok = _c_try($cc, $target, $msg, $code, $ok_val, $cflags, $exec_out_ref) ;
+
+	unlink $target ;
 
 	return $ok ;
 }
@@ -710,7 +756,7 @@ return $ac_func ();
 }
 _ACEOF
 	
-	my $ac_has_function = c_try("checking for $ac_func", $code, $ac_func, '-Wall -Werror', "1") ;
+	my $ac_has_function = c_try_link("checking for $ac_func", $code, $ac_func, '-Wall -Werror', "1") ;
 	return $ac_has_function ;
 }
 
@@ -738,6 +784,62 @@ _ACEOF
 	my $ac_struct_timeval = c_try("checking for struct timeval", $code, 1) ;
 	return $ac_struct_timeval ;
 }
+
+
+##-------------------------------------------------------------------------------------------
+sub check_largefile
+{
+	my ($config_href) = @_ ;
+	
+	my $code = <<_ACEOF ;
+#include <unistd.h>
+
+int
+main ()
+{
+off64_t i = 0 ;
+
+  return 0;
+}
+_ACEOF
+	
+	$config_href->{'off64_t'} = "" ;
+	my $ac_off64_t = c_try("checking for off64_t support", $code, 1) ;
+	if (!$ac_off64_t)
+	{
+		$config_href->{'off64_t'} = "#define off64_t off_t" ;
+	}
+	
+
+	$code = <<_ACEOF ;
+#include <unistd.h>
+#include <stdio.h>
+#include <fcntl.h>
+
+$config_href->{'off64_t'}
+
+int
+main ()
+{
+int fd = open("tmp.txt", O_RDONLY) ;
+off64_t size ;
+
+	size = lseek64(fd, -1, SEEK_END);
+	printf("size=%lld", (long long int)size) ;
+
+  return 0;
+}
+_ACEOF
+	
+	$config_href->{'lseek64'} = "" ;
+	my $ac_lseek64 = c_try_link("checking for lseek64", $code, 1) ;
+	if (!$ac_lseek64)
+	{
+		$config_href->{'lseek64'} = "#define lseek64 lseek" ;
+	}
+
+}
+
 
 
 
@@ -933,11 +1035,11 @@ sub have_func
 ##-------------------------------------------------------------------------------------------
 sub arch_name
 {
-	my $arch = "" ;
+	my $arch = "ARCH_X86" ;
 
 	my $arch_name = $Config{'archname'} ;
 	
-	if ($arch_name =~ /i.86\-.*|k.\-.*|x86_64\-.*|x86\-.*|amd64\-.*/i)
+	if ($arch_name =~ /i.86\-.*|k.\-.*|x86_64\-.*|x86\-.*|amd64\-.*|x86/i)
 	{
 		$arch = "ARCH_X86" ;
 	}
@@ -970,7 +1072,7 @@ sub get_config
 	
 	# Arch
 	$current_config{'ARCH'} = arch_name() ;
-	
+
 	# Alignment
 	$current_config{'ALIGN_BYTES'} = $Config{'alignbytes'} * 8 ;
 	
@@ -1085,11 +1187,53 @@ sub get_config
 	$current_config{'HAVE_BUILTIN_EXPECT'} = have_builtin_expect() ; 
 	$current_config{'HAVE_LRINTF'} = have_lrintf() ;
 
+	# Large file support
+	check_largefile(\%current_config) ;
+
 	## save
 	$ModuleInfo{'config'} = \%current_config ;
 
 	return %current_config ;
 }
+
+#-----------------------------------------------------------------------------------------------------------------------
+sub get_makemakerdflt 
+{
+	my $make =<<MAKEMAKERDFLT;
+
+## Show config
+makemakerdflt : showconfig all
+	\$(NOECHO) \$(NOOP)
+
+showconfig : FORCE 
+	\$(NOECHO) \$(ECHO) "=================================================================="
+	\$(NOECHO) \$(ECHO) "== CONFIG                                                       =="
+	\$(NOECHO) \$(ECHO) "=================================================================="
+MAKEMAKERDFLT
+
+	foreach my $var (sort keys %{$ModuleInfo{'config'}})
+	{
+		my $padded = sprintf "%-24s", "$var:" ;
+		my $val = $ModuleInfo{'config'}{$var} ;
+		if ($var eq 'ENDIAN')
+		{
+			if ($val =~ m/#define (\w+)/)
+			{
+				$val = "#define $1 1" ;
+			}
+			else
+			{
+				$val = "" ;
+			}
+		}
+		$make .= "\t\$(NOECHO) \$(ECHO) \"$padded $val\"\n" ;
+	}
+	$make .= "\t\$(NOECHO) \$(ECHO) ==================================================================\n" ;
+	$make .= "\t\$(NOECHO) \$(ECHO)\n" ;
+
+	return $make ;
+}
+
 
 
 
@@ -1100,4 +1244,352 @@ sub get_config
 1;
 
 __END__
+
+
+  { echo "$as_me:$LINENO: checking for special C compiler options needed for large files" >&5
+echo $ECHO_N "checking for special C compiler options needed for large files... $ECHO_C" >&6; }
+if test "${ac_cv_sys_largefile_CC+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  ac_cv_sys_largefile_CC=no
+     if test "$GCC" != yes; then
+       ac_save_CC=$CC
+       while :; do
+	 # IRIX 6.2 and later do not support large files by default,
+	 # so use the C compiler's -n32 option if that helps.
+	 cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+#include <sys/types.h>
+ /* Check that off_t can represent 2**63 - 1 correctly.
+    We can't simply define LARGE_OFF_T to be 9223372036854775807,
+    since some C++ compilers masquerading as C compilers
+    incorrectly reject 9223372036854775807.  */
+#define LARGE_OFF_T (((off_t) 1 << 62) - 1 + ((off_t) 1 << 62))
+  int off_t_is_large[(LARGE_OFF_T % 2147483629 == 721
+		       && LARGE_OFF_T % 2147483647 == 1)
+		      ? 1 : -1];
+int
+main ()
+{
+
+  ;
+  return 0;
+}
+_ACEOF
+	 rm -f conftest.$ac_objext
+if { (ac_try="$ac_compile"
+case "(($ac_try" in
+  *\"* | *\`* | *\\*) ac_try_echo=\$ac_try;;
+  *) ac_try_echo=$ac_try;;
+esac
+eval "echo \"\$as_me:$LINENO: $ac_try_echo\"") >&5
+  (eval "$ac_compile") 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } && {
+	 test -z "$ac_c_werror_flag" ||
+	 test ! -s conftest.err
+       } && test -s conftest.$ac_objext; then
+  break
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+
+fi
+
+rm -f core conftest.err conftest.$ac_objext
+	 CC="$CC -n32"
+	 rm -f conftest.$ac_objext
+if { (ac_try="$ac_compile"
+case "(($ac_try" in
+  *\"* | *\`* | *\\*) ac_try_echo=\$ac_try;;
+  *) ac_try_echo=$ac_try;;
+esac
+eval "echo \"\$as_me:$LINENO: $ac_try_echo\"") >&5
+  (eval "$ac_compile") 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } && {
+	 test -z "$ac_c_werror_flag" ||
+	 test ! -s conftest.err
+       } && test -s conftest.$ac_objext; then
+  ac_cv_sys_largefile_CC=' -n32'; break
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+
+fi
+
+rm -f core conftest.err conftest.$ac_objext
+	 break
+       done
+       CC=$ac_save_CC
+       rm -f conftest.$ac_ext
+    fi
+fi
+{ echo "$as_me:$LINENO: result: $ac_cv_sys_largefile_CC" >&5
+echo "${ECHO_T}$ac_cv_sys_largefile_CC" >&6; }
+  if test "$ac_cv_sys_largefile_CC" != no; then
+    CC=$CC$ac_cv_sys_largefile_CC
+  fi
+
+
+
+
+
+  { echo "$as_me:$LINENO: checking for _FILE_OFFSET_BITS value needed for large files" >&5
+echo $ECHO_N "checking for _FILE_OFFSET_BITS value needed for large files... $ECHO_C" >&6; }
+if test "${ac_cv_sys_file_offset_bits+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  while :; do
+  cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+#include <sys/types.h>
+ /* Check that off_t can represent 2**63 - 1 correctly.
+    We can't simply define LARGE_OFF_T to be 9223372036854775807,
+    since some C++ compilers masquerading as C compilers
+    incorrectly reject 9223372036854775807.  */
+#define LARGE_OFF_T (((off_t) 1 << 62) - 1 + ((off_t) 1 << 62))
+  int off_t_is_large[(LARGE_OFF_T % 2147483629 == 721
+		       && LARGE_OFF_T % 2147483647 == 1)
+		      ? 1 : -1];
+int
+main ()
+{
+
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext
+if { (ac_try="$ac_compile"
+case "(($ac_try" in
+  *\"* | *\`* | *\\*) ac_try_echo=\$ac_try;;
+  *) ac_try_echo=$ac_try;;
+esac
+eval "echo \"\$as_me:$LINENO: $ac_try_echo\"") >&5
+  (eval "$ac_compile") 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } && {
+	 test -z "$ac_c_werror_flag" ||
+	 test ! -s conftest.err
+       } && test -s conftest.$ac_objext; then
+  ac_cv_sys_file_offset_bits=no; break
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+
+fi
+
+rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
+  cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+#define _FILE_OFFSET_BITS 64
+#include <sys/types.h>
+ /* Check that off_t can represent 2**63 - 1 correctly.
+    We can't simply define LARGE_OFF_T to be 9223372036854775807,
+    since some C++ compilers masquerading as C compilers
+    incorrectly reject 9223372036854775807.  */
+#define LARGE_OFF_T (((off_t) 1 << 62) - 1 + ((off_t) 1 << 62))
+  int off_t_is_large[(LARGE_OFF_T % 2147483629 == 721
+		       && LARGE_OFF_T % 2147483647 == 1)
+		      ? 1 : -1];
+int
+main ()
+{
+
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext
+if { (ac_try="$ac_compile"
+case "(($ac_try" in
+  *\"* | *\`* | *\\*) ac_try_echo=\$ac_try;;
+  *) ac_try_echo=$ac_try;;
+esac
+eval "echo \"\$as_me:$LINENO: $ac_try_echo\"") >&5
+  (eval "$ac_compile") 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } && {
+	 test -z "$ac_c_werror_flag" ||
+	 test ! -s conftest.err
+       } && test -s conftest.$ac_objext; then
+  ac_cv_sys_file_offset_bits=64; break
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+
+fi
+
+rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
+  ac_cv_sys_file_offset_bits=unknown
+  break
+done
+fi
+{ echo "$as_me:$LINENO: result: $ac_cv_sys_file_offset_bits" >&5
+echo "${ECHO_T}$ac_cv_sys_file_offset_bits" >&6; }
+case $ac_cv_sys_file_offset_bits in #(
+  no | unknown) ;;
+  *)
+cat >>confdefs.h <<_ACEOF
+#define _FILE_OFFSET_BITS $ac_cv_sys_file_offset_bits
+_ACEOF
+;;
+esac
+rm -f conftest*
+  if test $ac_cv_sys_file_offset_bits = unknown; then
+    { echo "$as_me:$LINENO: checking for _LARGE_FILES value needed for large files" >&5
+echo $ECHO_N "checking for _LARGE_FILES value needed for large files... $ECHO_C" >&6; }
+if test "${ac_cv_sys_large_files+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  while :; do
+  cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+#include <sys/types.h>
+ /* Check that off_t can represent 2**63 - 1 correctly.
+    We can't simply define LARGE_OFF_T to be 9223372036854775807,
+    since some C++ compilers masquerading as C compilers
+    incorrectly reject 9223372036854775807.  */
+#define LARGE_OFF_T (((off_t) 1 << 62) - 1 + ((off_t) 1 << 62))
+  int off_t_is_large[(LARGE_OFF_T % 2147483629 == 721
+		       && LARGE_OFF_T % 2147483647 == 1)
+		      ? 1 : -1];
+int
+main ()
+{
+
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext
+if { (ac_try="$ac_compile"
+case "(($ac_try" in
+  *\"* | *\`* | *\\*) ac_try_echo=\$ac_try;;
+  *) ac_try_echo=$ac_try;;
+esac
+eval "echo \"\$as_me:$LINENO: $ac_try_echo\"") >&5
+  (eval "$ac_compile") 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } && {
+	 test -z "$ac_c_werror_flag" ||
+	 test ! -s conftest.err
+       } && test -s conftest.$ac_objext; then
+  ac_cv_sys_large_files=no; break
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+
+fi
+
+rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
+  cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+#define _LARGE_FILES 1
+#include <sys/types.h>
+ /* Check that off_t can represent 2**63 - 1 correctly.
+    We can't simply define LARGE_OFF_T to be 9223372036854775807,
+    since some C++ compilers masquerading as C compilers
+    incorrectly reject 9223372036854775807.  */
+#define LARGE_OFF_T (((off_t) 1 << 62) - 1 + ((off_t) 1 << 62))
+  int off_t_is_large[(LARGE_OFF_T % 2147483629 == 721
+		       && LARGE_OFF_T % 2147483647 == 1)
+		      ? 1 : -1];
+int
+main ()
+{
+
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext
+if { (ac_try="$ac_compile"
+case "(($ac_try" in
+  *\"* | *\`* | *\\*) ac_try_echo=\$ac_try;;
+  *) ac_try_echo=$ac_try;;
+esac
+eval "echo \"\$as_me:$LINENO: $ac_try_echo\"") >&5
+  (eval "$ac_compile") 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } && {
+	 test -z "$ac_c_werror_flag" ||
+	 test ! -s conftest.err
+       } && test -s conftest.$ac_objext; then
+  ac_cv_sys_large_files=1; break
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+
+fi
+
+rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
+  ac_cv_sys_large_files=unknown
+  break
+done
+fi
+{ echo "$as_me:$LINENO: result: $ac_cv_sys_large_files" >&5
+echo "${ECHO_T}$ac_cv_sys_large_files" >&6; }
+case $ac_cv_sys_large_files in #(
+  no | unknown) ;;
+  *)
+cat >>confdefs.h <<_ACEOF
+#define _LARGE_FILES $ac_cv_sys_large_files
+_ACEOF
+;;
+esac
+rm -f conftest*
+  fi
+fi
 

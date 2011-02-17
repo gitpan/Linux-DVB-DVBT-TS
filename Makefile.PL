@@ -39,7 +39,12 @@ use Makeutils ;
 	## Add libraries
 	add_clibs($clib, {
 		'dvb_lib'		=> {'mkf' => 'Subdir-min.mk'},
-		'dvb_ts_lib'	=> 1,
+		'dvb_ts_lib'	=> { 
+			'config'		=> {
+				'file'			=> 'config.h',
+				'func'			=> \&create_ts_config_h,
+			},
+		},
 		'libmpeg2'		=> { 
 			'config'		=> {
 				'file'			=> 'include/config.h',
@@ -61,6 +66,7 @@ use Makeutils ;
 
 	
 	## Write Makefile
+	my $MYEXTLIB = 'clib/dummy_lib$(LIB_EXT)' ;
 	
 	# See lib/ExtUtils/MakeMaker.pm for details of how to influence
 	# the contents of the Makefile that is written.
@@ -91,6 +97,30 @@ use Makeutils ;
 
 
 	exit 0 ;
+
+
+#-----------------------------------------------------------------------------------------------------------------------
+sub MY::makemakerdflt 
+{
+	my $makemakerdflt = get_makemakerdflt() ;
+	return $makemakerdflt ;
+}
+
+#-----------------------------------------------------------------------------------------------------------------------
+sub MY::postamble {
+'
+
+## Optional doxygen documentation 
+doxygen: FORCE
+	cd doxygen && doxygen
+
+## Author target: preview CPAN documentation
+cpandoc: FORCE
+	perl -MPod::Simple::HTMLBatch -e Pod::Simple::HTMLBatch::go . pod/batch
+	cp pod/html_files/style.css pod/batch/_black_with_blue_on_white.css
+
+';
+}
 
 
 #-----------------------------------------------------------------------------------------------------------------------
@@ -416,7 +446,7 @@ $current_config{const}
 /* Define to `__inline__' or `__inline' if that's what the C compiler
    calls it, or to nothing if 'inline' is not supported under any name.  */
 #ifndef __cplusplus
-#define inline $current_config{inline}
+$current_config{inline}
 #endif
 
 /* Define as `__restrict' if that's what the C compiler calls it, or to
@@ -500,3 +530,77 @@ CONFIG_H
 	close $fh ;
 }
 
+#-----------------------------------------------------------------------------------------------------------------------
+sub create_ts_config_h
+{
+	my ($fname, %current_config) = @_ ;
+
+	open my $fh, ">$fname" or die "Error: Unable to write $fname : $!" ;
+
+	#-------------------------------------------------------------
+	## File
+	print $fh <<CONFIG_H ;
+/* $Config{archname} */
+#ifndef CONFIG_H
+#define CONFIG_H
+	
+/* Architecture */
+#define $current_config{ARCH}
+
+/* Define to 1 if you have the <inttypes.h> header file. */
+$current_config{HAVE_INTTYPES_H}
+
+/* Define to 1 if you have the <stdint.h> header file. */
+$current_config{HAVE_STDINT_H}
+
+/* Define to 1 if you have the <stdlib.h> header file. */
+$current_config{HAVE_STDLIB_H}
+
+/* Define to 1 if you have the <strings.h> header file. */
+$current_config{HAVE_STRINGS_H}
+
+/* Define to 1 if you have the <string.h> header file. */
+$current_config{HAVE_STRING_H}
+
+/* Define to 1 if the system has the type `struct timeval'. */
+$current_config{HAVE_STRUCT_TIMEVAL}
+
+/* Define to 1 if you have the <sys/stat.h> header file. */
+$current_config{HAVE_SYS_STAT_H}
+
+/* Define to 1 if you have the <sys/timeb.h> header file. */
+$current_config{HAVE_SYS_TIMEB_H}
+
+/* Define to 1 if you have the <sys/time.h> header file. */
+$current_config{HAVE_SYS_TIME_H}
+
+/* Define to 1 if you have the <sys/types.h> header file. */
+$current_config{HAVE_SYS_TYPES_H}
+
+/* Define to 1 if you have the <time.h> header file. */
+$current_config{HAVE_TIME_H}
+
+/* Define to 1 if you have the <unistd.h> header file. */
+$current_config{HAVE_UNISTD_H}
+
+
+/* Set up large file support */
+$current_config{off64_t}
+$current_config{lseek64}
+
+// If large file support is not included, then make the value do nothing
+#ifndef O_LARGEFILE
+#define O_LARGEFILE	0
+#endif
+
+#ifndef O_BINARY
+#define O_BINARY	0
+#endif
+
+
+#endif
+
+CONFIG_H
+
+	close $fh ;
+}

@@ -2,6 +2,7 @@
 //
 // Standard C code loaded outside XS space. Contains useful routines used by ts TS parsing functions
 
+// VERSION 1.01
 
 #include "ts_split.h"
 

@@ -5,6 +5,8 @@
  *      Author: sdprice1
  */
 
+// VERSION = 1.01
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -13,15 +15,12 @@
 #include <ctype.h>
 #include <fcntl.h>
 #include <inttypes.h>
-//#include <sys/time.h>
-//#include <sys/types.h>
-//#include <sys/ioctl.h>
 
 #include "ts_parse.h"
 
 // print debug if debug setting is high enough
 #define tsparse_dbg_prt(LVL, ARGS)	\
-		if (tsreader->debug >= LVL)	printf ARGS
+		if (tsreader->debug >= LVL)	{ printf ARGS ; fflush(stdout) ; }
 
 
 /*=============================================================================================*/
@@ -1662,8 +1661,8 @@ struct TS_pid    *piditem;
 // Origin is as lseek ; skip_pkts can be -ve if origin is SEEK_END
 int tsreader_setpos(struct TS_reader *tsreader, int skip_pkts, int origin, unsigned num_pkts)
 {
-off_t rc = 0 ;
-off_t pos ;
+off64_t rc = 0 ;
+off64_t pos ;
 
 	// set position
 	tsreader->num_pkts = num_pkts ;
@@ -1671,15 +1670,15 @@ off_t pos ;
 	tsreader->origin = origin ;
 	tsreader->tsstate->pidinfo.pktnum = 0 ;
 
-	pos = (off_t)(skip_pkts) * (off_t)(TS_PACKET_LEN) ;
+	pos = (off64_t)(skip_pkts) * (off64_t)(TS_PACKET_LEN) ;
 
 	tsparse_dbg_prt(100, ("tsreader_setpos(skip=%d, origin=%d) pos=%"PRId64"\n", skip_pkts, origin, (long long int)pos)) ;
 
-	rc = lseek(tsreader->file, pos, origin) ;
+	rc = lseek64(tsreader->file, pos, origin) ;
 
 	tsparse_dbg_prt(100, ("lseek pos now = %"PRId64"\n", (long long int)rc)) ;
 
-	if (rc == (off_t)-1)
+	if (rc == (off64_t)-1)
 	{
 		SET_DVB_ERROR(ERR_FILE_SEEK) ;
 		if (tsreader->debug >= 100)
@@ -1707,7 +1706,7 @@ struct TS_reader *tsreader_new(char *filename)
 {
 int file ;
 struct TS_reader *tsreader = NULL ;
-off_t size ;
+off64_t size ;
 
 	// open file
 	file = open(filename, O_RDONLY | O_LARGEFILE | O_BINARY, 0666);
@@ -1726,8 +1725,8 @@ off_t size ;
 	tsreader->tsstate = tsstate_new() ;
 
 	// work out total number of packets
-	size = lseek(tsreader->file, -1, SEEK_END) ;
-	tsreader->tsstate->total_pkts = (unsigned)(size / TS_PACKET_LEN) ;
+	size = lseek64(tsreader->file, -1, SEEK_END) ;
+	tsreader->tsstate->total_pkts = (unsigned)(size / (off64_t)TS_PACKET_LEN) ;
 
 	// set position
 	tsreader_setpos(tsreader, 0, SEEK_SET, 0) ;

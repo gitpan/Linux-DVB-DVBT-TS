@@ -9,6 +9,11 @@
 #define TS_PARSE_H_
 
 #include <inttypes.h>
+
+//-- config --
+#include "config.h"
+
+// dvb_lib
 #include "list.h"
 #include "dvb_error.h"
 
@@ -36,16 +41,6 @@
 // create a buffer that is a number of packets long
 // (this is approx 4k)
 #define BUFFSIZE		(22 * TS_PACKET_LEN)
-
-
-// If large file support is not included, then make the value do nothing
-#ifndef O_LARGEFILE
-#define O_LARGEFILE	0
-#endif
-
-#ifndef O_BINARY
-#define O_BINARY	0
-#endif
 
 
 // clear memory

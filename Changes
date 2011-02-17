@@ -1,5 +1,9 @@
 Revision history for Perl extension Linux::DVB::DVBT::TS.
 
+0.03  Thu Feb 17 12:09:00 2011
+	- corrected mpeg2audio config.h
+	- updated to display config at beginning of make
+		
 0.02  Tue Feb 08 12:09:00 2011
 	- modified mpegaudiodec.c to use standard int64_t definition
 	- corrected ts_split to properly split on advert boundaries
