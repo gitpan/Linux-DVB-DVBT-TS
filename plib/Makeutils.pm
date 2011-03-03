@@ -67,7 +67,7 @@ our @EXPORT = qw/
 #============================================================================================
 # GLOBALS
 #============================================================================================
-our $VERSION = '0.07' ;
+our $VERSION = '1.01' ;
 our $DEBUG ;
 
 our %ModuleInfo ;
@@ -124,6 +124,10 @@ sub init
 		'mod_defines'	=> "",
 		'make_defines'	=> "",
 		
+		## Flags
+		'CCFLAGS'		=> '-o $@',
+		'OPTIMIZE'		=> '-O3',
+		
 		# included c-libraries
 		'clibs'			=> {},
 		'includes'		=> "",
@@ -135,6 +139,8 @@ sub init
 		'obj_list' 		=> [],
 		
 		'config'		=> {},
+		
+		'COMMENTS'		=> {},
 		
 	) ;
 	
@@ -225,6 +231,9 @@ sub get_makeopts
 		add_defines({
 			'DEBUG'		=> 1,
 		}) ;
+		
+		# compile for debug
+		$ModuleInfo{'OPTIMIZE'} = '-ggdb -O0' ;
 	} 
 	
 }
@@ -471,7 +480,7 @@ print "$errstr" ;
 		$ok = $ok_val ;
 		
 #		## See if we want to run the code
-#		if ($exec_out_ref)
+#		if ($exec_out_ref && ref($exec_out_ref))
 #		{
 #			my @out = `./$conftest` ;
 #		}
@@ -519,10 +528,12 @@ sub c_try
 ##-------------------------------------------------------------------------------------------
 sub c_try_link
 {
-	my ($msg, $code, $ok_val, $cflags, $exec_out_ref) = @_ ;
+	my ($msg, $code, $ok_val, $cflags, $exec_out_ref, $ld_flags) = @_ ;
 
+	$ld_flags ||= "" ;
+	
 	my $target = "conftest$Config{_exe}" ;
-	my $cc = "$Config{'cc'} -o $target" ;
+	my $cc = "$Config{'cc'} -o $target $ld_flags" ;
 
 	my $ok = _c_try($cc, $target, $msg, $code, $ok_val, $cflags, $exec_out_ref) ;
 
@@ -756,8 +767,48 @@ return $ac_func ();
 }
 _ACEOF
 	
-	my $ac_has_function = c_try_link("checking for $ac_func", $code, $ac_func, '-Wall -Werror', "1") ;
+#	c_try_link($msg, $code, $ok_val, $cflags, $exec_out_ref, $ld_flags) ;
+	my $ac_has_function = c_try_link("checking for $ac_func", $code, $ac_func, '-Wall -Werror') ;
 	return $ac_has_function ;
+}
+
+
+##-------------------------------------------------------------------------------------------
+sub c_has_math_function
+{
+	my ($ac_func) = @_ ;
+
+	my $code = <<_ACEOF ;
+#include <math.h>
+float foo(float f) { return $ac_func (f); }
+int main (void) { return 0; }
+_ACEOF
+	
+#	c_try_link($msg, $code, $ok_val, $cflags, $exec_out_ref, $ld_flags) ;
+	my $ac_has_function = c_try_link("checking for $ac_func", $code, $ac_func, '-Wall -Werror', undef, '-lm') ;
+	return $ac_has_function ;
+}
+
+##-------------------------------------------------------------------------------------------
+sub c_replace_math_function
+{
+	my ($ac_func) = @_ ;
+
+	my $code = <<_ACEOF ;
+#include <math.h>
+
+static inline long int $ac_func(float x)
+{
+    return (int)(x);
+}
+
+float foo(float f) { return $ac_func (f); }
+int main (void) { return 0; }
+_ACEOF
+	
+#	c_try_link($msg, $code, $ok_val, $cflags, $exec_out_ref, $ld_flags) ;
+	my $ac_hasnt_function = c_try_link("", $code, $ac_func, '-Wall -Werror', undef, '-lm') ;
+	return $ac_hasnt_function ;
 }
 
 
@@ -785,60 +836,6 @@ _ACEOF
 	return $ac_struct_timeval ;
 }
 
-
-##-------------------------------------------------------------------------------------------
-sub check_largefile
-{
-	my ($config_href) = @_ ;
-	
-	my $code = <<_ACEOF ;
-#include <unistd.h>
-
-int
-main ()
-{
-off64_t i = 0 ;
-
-  return 0;
-}
-_ACEOF
-	
-	$config_href->{'off64_t'} = "" ;
-	my $ac_off64_t = c_try("checking for off64_t support", $code, 1) ;
-	if (!$ac_off64_t)
-	{
-		$config_href->{'off64_t'} = "#define off64_t off_t" ;
-	}
-	
-
-	$code = <<_ACEOF ;
-#include <unistd.h>
-#include <stdio.h>
-#include <fcntl.h>
-
-$config_href->{'off64_t'}
-
-int
-main ()
-{
-int fd = open("tmp.txt", O_RDONLY) ;
-off64_t size ;
-
-	size = lseek64(fd, -1, SEEK_END);
-	printf("size=%lld", (long long int)size) ;
-
-  return 0;
-}
-_ACEOF
-	
-	$config_href->{'lseek64'} = "" ;
-	my $ac_lseek64 = c_try_link("checking for lseek64", $code, 1) ;
-	if (!$ac_lseek64)
-	{
-		$config_href->{'lseek64'} = "#define lseek64 lseek" ;
-	}
-
-}
 
 
 
@@ -899,6 +896,62 @@ sub check_new_version
 	
 }
 
+
+##-------------------------------------------------------------------------------------------
+sub check_largefile
+{
+	my $code = <<_ACEOF ;
+#include <unistd.h>
+
+int
+main ()
+{
+off64_t i = 0 ;
+
+  return 0;
+}
+_ACEOF
+	
+	$ModuleInfo{'config'}{'off64_t'} = "" ;
+	my $ac_off64_t = c_try("checking for off64_t support", $code, 1) ;
+	if (!$ac_off64_t)
+	{
+		$ModuleInfo{'config'}{'off64_t'} = "#define off64_t off_t" ;
+	}
+	
+
+	$code = <<_ACEOF ;
+#include <unistd.h>
+#include <stdio.h>
+#include <fcntl.h>
+
+$ModuleInfo{'config'}{'off64_t'}
+
+int
+main ()
+{
+int fd = open("tmp.txt", O_RDONLY) ;
+off64_t size ;
+
+	size = lseek64(fd, -1, SEEK_END);
+	printf("size=%lld", (long long int)size) ;
+
+  return 0;
+}
+_ACEOF
+	
+	$ModuleInfo{'config'}{'lseek64'} = "" ;
+
+#	c_try_link($msg, $code, $ok_val, $cflags, $exec_out_ref, $ld_flags) ;
+	my $ac_lseek64 = c_try_link("checking for lseek64", $code, 1) ;
+	if (!$ac_lseek64)
+	{
+		$ModuleInfo{'config'}{'lseek64'} = "#define lseek64 lseek" ;
+	}
+
+}
+
+
 ##-------------------------------------------------------------------------------------------
 sub have_h
 {
@@ -927,6 +980,8 @@ sub have_h
 	}
 	
 	my $str = "#$def $name " . ($def eq 'define' ? $val : $notval) ;
+	$ModuleInfo{'config'}{$name} = $str ;
+	
 	return $str ;
 }
 
@@ -942,6 +997,8 @@ sub have_d
 
 	my $def = $Config{$key} || 'undef' ;
 	my $str = "#$def $name " . ($def eq 'define' ? $val : $notval) ;
+	$ModuleInfo{'config'}{$name} = $str ;
+
 	return $str ;
 }
 
@@ -962,6 +1019,8 @@ sub havent_d
 	{
 		$str = "#define $name $val"
 	}
+	$ModuleInfo{'config'}{$name} = $str ;
+
 	return $str ;
 }
 
@@ -996,6 +1055,8 @@ sub have_h
 	}
 	
 	my $str = "#$def $name " . ($def eq 'define' ? $val : $notval) ;
+	$ModuleInfo{'config'}{$name} = $str ;
+
 	return $str ;
 }
 
@@ -1027,18 +1088,58 @@ sub have_func
 	}
 	
 	my $str = "#$def $name " . ($def eq 'define' ? $val : $notval) ;
+	$ModuleInfo{'config'}{$name} = $str ;
+
+	return $str ;
+}
+
+##-------------------------------------------------------------------------------------------
+sub have_mathfunc
+{
+	my ($key, $func, $name, $val, $notval) = @_ ;
+	
+	$val = "1" unless defined($val) ;
+	$notval = "" unless defined($notval) ;
+
+	my $def ;
+	if (!$def)
+	{
+		my $has = c_has_math_function($func) ;
+		if ($has)
+		{
+			$def = 'define' ;
+		}
+		else
+		{
+			# extra check to ensure it's not a false negative(?)
+			my $hasnt = c_replace_math_function($func) ;
+			if (!$hasnt)
+			{
+				# Failed, so we have really got it?
+				$def = 'define' ;
+				$ModuleInfo{'COMMENTS'}{$name} = 'failed check of replacement' ;
+			}
+		}
+	}
+	if (!$def)
+	{
+		$def = 'undef' ;
+	}
+	
+	my $str = "#$def $name " . ($def eq 'define' ? $val : $notval) ;
+	$ModuleInfo{'config'}{$name} = $str ;
+
 	return $str ;
 }
 
 
-
 ##-------------------------------------------------------------------------------------------
-sub arch_name
+sub _chk_arch_name
 {
-	my $arch = "ARCH_X86" ;
+	my ($arch_name) = @_ ;
 
-	my $arch_name = $Config{'archname'} ;
-	
+	my $arch = "" ;
+
 	if ($arch_name =~ /i.86\-.*|k.\-.*|x86_64\-.*|x86\-.*|amd64\-.*|x86/i)
 	{
 		$arch = "ARCH_X86" ;
@@ -1062,49 +1163,74 @@ sub arch_name
 		$arch = "ARCH_ARM" ;
 	}
 
+	# keep trying with slightly relaxed regexps
+	elsif ($arch_name =~ /i.86.*|k..*|x86_64.*|x86.*|amd64.*|x86/i)
+	{
+		$arch = "ARCH_X86" ;
+	}
+	elsif ($arch_name =~ /ppc.*|powerpc.*/i)
+	{
+		$arch = "ARCH_PPC" ;
+		
+		# altivec?
+	}
+	elsif ($arch_name =~ /sparc*|sparc64.*/i)
+	{
+		$arch = "ARCH_SPARC" ;
+	}
+	
 	return $arch ;
 }
 
 ##-------------------------------------------------------------------------------------------
-sub get_config
+sub arch_name
 {
-	my %current_config ;
-	
-	# Arch
-	$current_config{'ARCH'} = arch_name() ;
+	my $arch = "" ;
+	$ModuleInfo{'COMMENTS'}{'ARCH'} = "" ;
 
-	# Alignment
-	$current_config{'ALIGN_BYTES'} = $Config{'alignbytes'} * 8 ;
+	## use %Config first
+	my $arch_name = $Config{'archname'} ;
+	$arch = _chk_arch_name($arch_name) ;
+	$ModuleInfo{'COMMENTS'}{'ARCH'} = "archname = $arch_name" ;
 	
-	# Have ...
-	$current_config{'HAVE_FTIME'} = have_func('d_ftime', 'ftime', 'HAVE_FTIME') ;
-	$current_config{'HAVE_GETTIMEOFDAY'} = have_func('d_gettimeod', 'gettimeofday', 'HAVE_GETTIMEOFDAY') ;
+	if (!$arch)
+	{
+		## Failed, so attempt to run uname
+		if ($^O ne 'MSWin32')
+		{
+			$arch_name = `uname -a` ;
+			$arch = _chk_arch_name($arch_name) ;
+			$ModuleInfo{'COMMENTS'}{'ARCH'} = "uname = $arch_name" ;
+		}
+	}
 
-	$current_config{'HAVE_INTTYPES_H'} = have_h('i_inttypes', 'inttypes.h', 'HAVE_INTTYPES_H') ;
-	$current_config{'HAVE_IO_H'} = have_h('', 'io.h', 'HAVE_IO_H') ;
-	$current_config{'HAVE_MEMORY_H'} = have_h('i_memory', 'memory.h', 'HAVE_MEMORY_H') ;
-	$current_config{'HAVE_STDINT_H'} = have_h('', 'stdint.h', 'HAVE_STDINT_H') ;
-	$current_config{'HAVE_STDLIB_H'} = have_h('i_stdlib', 'stdlib.h', 'HAVE_STDLIB_H') ;
-	$current_config{'HAVE_STRINGS_H'} = have_h('', 'strings.h', 'HAVE_STRINGS_H') ; 
-	$current_config{'HAVE_STRING_H'} = have_h('i_string', 'string.h', 'HAVE_STRING_H') ;
-	$current_config{'HAVE_SYS_STAT_H'} = have_h('i_sysstat', 'sys/stat.h', 'HAVE_SYS_STAT_H') ;
-	$current_config{'HAVE_SYS_TIMEB_H'} = have_h('', 'sys/timeb.h', 'HAVE_SYS_TIMEB_H') ; 
-	$current_config{'HAVE_SYS_TIME_H'} = have_h('i_systime', 'sys/time.h', 'HAVE_SYS_TIME_H') ;
-	$current_config{'HAVE_SYS_TYPES_H'} = have_h('i_systypes', 'sys/types.h', 'HAVE_SYS_TYPES_H') ;
-	$current_config{'HAVE_TIME_H'} = have_h('i_time', 'time.h', 'HAVE_TIME_H') ;
-	$current_config{'HAVE_UNISTD_H'} = have_h('i_unistd', 'unistd.h', 'HAVE_UNISTD_H') ;
-	$current_config{'HAVE_GETOPT_H'} = have_h('', 'getopt.h', 'HAVE_GETOPT_H') ;
+	## Catch-all if everything else has failed...
+	if (!$arch)
+	{
+		$arch = "ARCH_X86" ;
+		$ModuleInfo{'COMMENTS'}{'ARCH'} ||= "Unable to determine" ;
+	}
+
+	$ModuleInfo{'config'}{'ARCH'} = $arch ;
 	
-	
-	# TODO: convert to live checks....
-	$current_config{'USE_LARGEFILES'} = have_d('uselargefiles', '_LARGE_FILES') ;
-	$current_config{'const'} = havent_d('d_const', 'const') ;
-	$current_config{'size_t'} = $Config{'sizetype'} eq 'size_t' ? "" : "#define size_t unsigned int" ;
-	$current_config{'volatile'} = havent_d('d_volatile', 'CONST') ;
-	
-	
-	
-	# Endian 
+	return $arch ;
+}
+
+##-------------------------------------------------------------------------------------------
+sub get_align
+{
+	$ModuleInfo{'config'}{'ALIGN_BYTES'} = $Config{'alignbytes'} * 8 ;
+}
+
+##-------------------------------------------------------------------------------------------
+sub get_size_t
+{
+	$ModuleInfo{'config'}{'size_t'} = $Config{'sizetype'} eq 'size_t' ? "" : "#define size_t unsigned int" ;
+}
+
+##-------------------------------------------------------------------------------------------
+sub get_endian
+{
 	my $ENDIAN = "
 #undef WORDS_BIGENDIAN
 #undef SHORT_BIGENDIAN
@@ -1157,7 +1283,52 @@ sub get_config
 " ;
 		}
 	}
-	$current_config{'ENDIAN'} = $ENDIAN ;
+	$ModuleInfo{'config'}{'ENDIAN'} = $ENDIAN ;
+}
+
+
+##-------------------------------------------------------------------------------------------
+sub get_config
+{
+#	my %current_config ;
+	
+	$ModuleInfo{'config'} = {} ;
+	
+	# Arch
+	arch_name() ;
+
+	# Alignment
+	get_align() ;
+	
+	# Have ...
+	have_func('d_ftime', 'ftime', 'HAVE_FTIME') ;
+	have_func('d_gettimeod', 'gettimeofday', 'HAVE_GETTIMEOFDAY') ;
+	have_mathfunc('', 'lrintf', 'HAVE_LRINTF') ;
+
+	have_h('i_inttypes', 'inttypes.h', 'HAVE_INTTYPES_H') ;
+	have_h('', 'io.h', 'HAVE_IO_H') ;
+	have_h('i_memory', 'memory.h', 'HAVE_MEMORY_H') ;
+	have_h('', 'stdint.h', 'HAVE_STDINT_H') ;
+	have_h('i_stdlib', 'stdlib.h', 'HAVE_STDLIB_H') ;
+	have_h('', 'strings.h', 'HAVE_STRINGS_H') ; 
+	have_h('i_string', 'string.h', 'HAVE_STRING_H') ;
+	have_h('i_sysstat', 'sys/stat.h', 'HAVE_SYS_STAT_H') ;
+	have_h('', 'sys/timeb.h', 'HAVE_SYS_TIMEB_H') ; 
+	have_h('i_systime', 'sys/time.h', 'HAVE_SYS_TIME_H') ;
+	have_h('i_systypes', 'sys/types.h', 'HAVE_SYS_TYPES_H') ;
+	have_h('i_time', 'time.h', 'HAVE_TIME_H') ;
+	have_h('i_unistd', 'unistd.h', 'HAVE_UNISTD_H') ;
+	have_h('', 'getopt.h', 'HAVE_GETOPT_H') ;
+	
+	
+	# TODO: convert to live checks....
+	have_d('uselargefiles', '_LARGE_FILES') ;
+	havent_d('d_const', 'const') ;
+	get_size_t() ;
+	havent_d('d_volatile', 'volatile') ;
+	
+	# Endian 
+	get_endian() ;
 	
 	# inline ?
 	my $ac_c_inline = c_inline() ;
@@ -1165,35 +1336,31 @@ sub get_config
 	my $inline = $ac_c_always_inline || $ac_c_inline || "" ;
 	if ($inline eq 'inline')
 	{
-		$current_config{'inline'} = "" ;
+		$ModuleInfo{'config'}{'inline'} = "" ;
 	}
 	else
 	{
-		$current_config{'inline'} = "#define inline $inline" ;
+		$ModuleInfo{'config'}{'inline'} = "#define inline $inline" ;
 	}
 	
 	# restrict ?
-	$current_config{'restrict'} = c_restrict() ;
+	$ModuleInfo{'config'}{'restrict'} = c_restrict() ;
 	
 
 	# timeval
 	my $ac_struct_timeval = c_struct_timeval() ;
-	$current_config{'HAVE_STRUCT_TIMEVAL'} = $ac_struct_timeval ? "#define HAVE_STRUCT_TIMEVAL 1" : "#undef HAVE_STRUCT_TIMEVAL" ;
+	$ModuleInfo{'config'}{'HAVE_STRUCT_TIMEVAL'} = $ac_struct_timeval ? "#define HAVE_STRUCT_TIMEVAL 1" : "#undef HAVE_STRUCT_TIMEVAL" ;
 	
 	# signal_t
-	$current_config{'RETSIGTYPE'} = $Config{'signal_t'} ? "#define RETSIGTYPE $Config{'signal_t'}" : "#define RETSIGTYPE void" ;
+	$ModuleInfo{'config'}{'RETSIGTYPE'} = $Config{'signal_t'} ? "#define RETSIGTYPE $Config{'signal_t'}" : "#define RETSIGTYPE void" ;
 
 	# Builtin...
-	$current_config{'HAVE_BUILTIN_EXPECT'} = have_builtin_expect() ; 
-	$current_config{'HAVE_LRINTF'} = have_lrintf() ;
+	$ModuleInfo{'config'}{'HAVE_BUILTIN_EXPECT'} = have_builtin_expect() ; 
 
 	# Large file support
-	check_largefile(\%current_config) ;
+	check_largefile() ;
 
-	## save
-	$ModuleInfo{'config'} = \%current_config ;
-
-	return %current_config ;
+	return %{$ModuleInfo{'config'}} ;
 }
 
 #-----------------------------------------------------------------------------------------------------------------------
@@ -1209,12 +1376,17 @@ showconfig : FORCE
 	\$(NOECHO) \$(ECHO) "=================================================================="
 	\$(NOECHO) \$(ECHO) "== CONFIG                                                       =="
 	\$(NOECHO) \$(ECHO) "=================================================================="
+	\$(NOECHO) \$(ECHO) "(Makeutils.pm version $VERSION)"
 MAKEMAKERDFLT
 
 	foreach my $var (sort keys %{$ModuleInfo{'config'}})
 	{
 		my $padded = sprintf "%-24s", "$var:" ;
 		my $val = $ModuleInfo{'config'}{$var} ;
+		
+		## Special cases
+		
+		# ENDIAN is multi-line
 		if ($var eq 'ENDIAN')
 		{
 			if ($val =~ m/#define (\w+)/)
@@ -1225,6 +1397,12 @@ MAKEMAKERDFLT
 			{
 				$val = "" ;
 			}
+		}
+		
+		# Check for comment
+		if (exists($ModuleInfo{'COMMENTS'}{$var}))
+		{
+			$val .= "  ($ModuleInfo{'COMMENTS'}{$var})" ;
 		}
 		$make .= "\t\$(NOECHO) \$(ECHO) \"$padded $val\"\n" ;
 	}

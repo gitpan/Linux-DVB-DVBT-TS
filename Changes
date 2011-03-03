@@ -1,5 +1,9 @@
 Revision history for Perl extension Linux::DVB::DVBT::TS.
 
+0.04  Thu Mar 03 12:30:00 2011
+	- updated check for architecture (should now correctly determine)
+	- updated test for lrintf
+		
 0.03  Thu Feb 17 12:09:00 2011
 	- corrected mpeg2audio config.h
 	- updated to display config at beginning of make

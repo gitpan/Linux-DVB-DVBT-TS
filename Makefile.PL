@@ -256,7 +256,7 @@ $current_config{ENDIAN}
 #define _FILE_OFFSET_BITS 64
 
 /* Define for large files, on AIX-style hosts. */
-$current_config{USE_LARGEFILES}
+$current_config{_LARGE_FILES}
 
 /* Define to empty if `const' does not conform to ANSI C. */
 $current_config{const}
@@ -438,7 +438,7 @@ $current_config{ENDIAN}
 #define _FILE_OFFSET_BITS 64
 
 /* Define for large files, on AIX-style hosts. */
-$current_config{USE_LARGEFILES}
+$current_config{_LARGE_FILES}
 
 /* Define to empty if `const' does not conform to ANSI C. */
 $current_config{const}
