@@ -32,6 +32,7 @@ script/dvbt-ts-info
 script/dvbt-ts-pics
 script/dvbt-ts-repair
 
+t/00-aaa.t
 t/00-boilerplate.t
 t/00-load.t
 t/01-basic.t

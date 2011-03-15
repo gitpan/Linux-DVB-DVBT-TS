@@ -1,5 +1,8 @@
 Revision history for Perl extension Linux::DVB::DVBT::TS.
 
+0.05  Tue Mar 15 19:45:00 2011
+	- debugging problems with building on multiple platforms (inline & lrintf)
+		
 0.04  Thu Mar 03 12:30:00 2011
 	- updated check for architecture (should now correctly determine)
 	- updated test for lrintf

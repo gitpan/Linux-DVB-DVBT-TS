@@ -56,7 +56,6 @@ our @EXPORT = qw/
 	have_h
 	have_d
 	havent_d
-	have_h
 	have_func
 	arch_name
 	get_config
@@ -67,10 +66,11 @@ our @EXPORT = qw/
 #============================================================================================
 # GLOBALS
 #============================================================================================
-our $VERSION = '1.01' ;
+our $VERSION = '1.02' ;
 our $DEBUG ;
 
 our %ModuleInfo ;
+
 
 #============================================================================================
 
@@ -141,6 +141,7 @@ sub init
 		'config'		=> {},
 		
 		'COMMENTS'		=> {},
+		'C_TRY'			=> {},
 		
 	) ;
 	
@@ -422,13 +423,17 @@ sub _create_includes_list
 ##-------------------------------------------------------------------------------------------
 sub _c_try
 {
-	my ($cc, $target, $msg, $code, $ok_val, $cflags, $exec_out_ref) = @_ ;
+	my ($info_tag, $cc, $target, $msg, $code, $ok_val, $cflags, $exec_out_ref) = @_ ;
 
 if ($DEBUG && $msg)
 {
 print "\n-------------------------\n" ;
 }		
-
+	if ($info_tag)
+	{
+		$ModuleInfo{'C_TRY'}{$info_tag} ||= [] ;
+	}
+	
 	print "$msg... " if $msg ;
 
 	$ok_val=1 unless defined $ok_val ;
@@ -447,7 +452,7 @@ print "\n-------------------------\n" ;
 	my $cmd = "$cc $conftest $cflags 2> $conferr" ;
 	my $rc = system($cmd) ;
 	my $errstr ;
-	open my $fh, "<$conferr" ;
+	open $fh, "<$conferr" ;
 	if ($fh)
 	{
 		$errstr = do { local $/; <$fh> } ;
@@ -472,6 +477,27 @@ print "- Compile errors:\n" ;
 print "- - - - - - - - - - - - -\n" ;
 print "$errstr" ;
 }		
+
+	if ($info_tag)
+	{
+		my $size = -s $target || 0 ;
+		push @{$ModuleInfo{'C_TRY'}{$info_tag}}, (
+"- - - - - - - - - - - - -",
+"- RC: $rc",
+"- - - - - - - - - - - - -",
+"- Code:",
+"- - - - - - - - - - - - -",
+"$code",
+"- - - - - - - - - - - - -",
+"- Cmd: $cmd",
+"- - - - - - - - - - - - -",
+"- Target: $target [size=$size]",
+"- - - - - - - - - - - - -",
+"- Compile errors:",
+"- - - - - - - - - - - - -",
+"$errstr" 
+		) ;
+	}
 
 	# check for errors
 	if ( ($rc==0) && (!$errstr) && (-s $target) )
@@ -500,6 +526,14 @@ print "$errstr" ;
 		print $ok ? "yes\n" : "no\n" ;		
 	}
 
+	if ($info_tag)
+	{
+		push @{$ModuleInfo{'C_TRY'}{$info_tag}}, (
+"- - - - - - - - - - - - -",
+"- Return: [ok=$ok]" 
+		) ;
+	}
+
 if ($DEBUG && $msg)
 {
 print "-------------------------\n\n" ;
@@ -513,12 +547,12 @@ print "-------------------------\n\n" ;
 ##-------------------------------------------------------------------------------------------
 sub c_try
 {
-	my ($msg, $code, $ok_val, $cflags, $exec_out_ref) = @_ ;
+	my ($info_tag, $msg, $code, $ok_val, $cflags, $exec_out_ref) = @_ ;
 
 	my $confobj = "conftest.o" ;
 	my $cc = "$Config{'cc'}  -o $confobj -c" ;
 
-	my $ok = _c_try($cc, $confobj, $msg, $code, $ok_val, $cflags, $exec_out_ref) ;
+	my $ok = _c_try($info_tag, $cc, $confobj, $msg, $code, $ok_val, $cflags, $exec_out_ref) ;
 
 	unlink $confobj ;
 
@@ -528,14 +562,14 @@ sub c_try
 ##-------------------------------------------------------------------------------------------
 sub c_try_link
 {
-	my ($msg, $code, $ok_val, $cflags, $exec_out_ref, $ld_flags) = @_ ;
+	my ($info_tag, $msg, $code, $ok_val, $cflags, $exec_out_ref, $ld_flags) = @_ ;
 
 	$ld_flags ||= "" ;
 	
 	my $target = "conftest$Config{_exe}" ;
 	my $cc = "$Config{'cc'} -o $target $ld_flags" ;
 
-	my $ok = _c_try($cc, $target, $msg, $code, $ok_val, $cflags, $exec_out_ref) ;
+	my $ok = _c_try($info_tag, $cc, $target, $msg, $code, $ok_val, $cflags, $exec_out_ref) ;
 
 	unlink $target ;
 
@@ -545,7 +579,7 @@ sub c_try_link
 ##-------------------------------------------------------------------------------------------
 sub c_try_keywords
 {
-	my ($msg, $code, $keywords_aref, $cflags) = @_ ;
+	my ($info_tag, $msg, $code, $keywords_aref, $cflags) = @_ ;
 	
 
 if ($DEBUG)
@@ -567,7 +601,7 @@ print "\n-------------------------\n" ;
 
 		my $code_str = $code ;
 		$code_str =~ s/\$ac_kw/$ac_kw/g ;
-		$ok = c_try("", $code_str, $ac_kw, $cflags) ;
+		$ok = c_try($info_tag, "", $code_str, $ac_kw, $cflags) ;
 		
 		if ($ok)
 		{
@@ -606,7 +640,7 @@ $ac_kw foo_t foo () {return 0; }
 
 _ACEOF
 	
-	my $ac_c_inline = c_try_keywords('checking for inline', $code, [qw/inline __inline__ __inline/]) ;
+	my $ac_c_inline = c_try_keywords('inline', 'checking for inline', $code, [qw/inline __inline__ __inline/]) ;
 	return $ac_c_inline ;
 }
 
@@ -622,7 +656,7 @@ int foo (int a)
 }
 _ACEOF
 	
-	my $ok = c_try('checking for builtin expect', $code, 1) ;
+	my $ok = c_try('expect', 'checking for builtin expect', $code, 1) ;
 	
 	return $ok ? "#define HAVE_BUILTIN_EXPECT 1" : "" ;
 }
@@ -641,7 +675,7 @@ long int b ;
 }
 _ACEOF
 	
-	my $ok = c_try('checking for lrintf', $code, 1) ;
+	my $ok = c_try('lrintf', 'checking for lrintf', $code, 1) ;
 	
 	return $ok ? "#define HAVE_LRINTF 1" : "" ;
 }
@@ -673,7 +707,7 @@ __attribute__ ((__always_inline__)) void f (void);
 }
 _ACEOF
 
-		$ac_c_always_inline = c_try('checking for always_inline', $code, '__attribute__ ((__always_inline__))') ;
+		$ac_c_always_inline = c_try('always_inline', 'checking for always_inline', $code, '__attribute__ ((__always_inline__))') ;
 	}
 	
 	return $ac_c_always_inline ;
@@ -695,7 +729,7 @@ char * $ac_kw p;
 
 _ACEOF
 	
-	my $ac_c_restrict = c_try_keywords('checking for restrict', $code, [qw/restrict __restrict__ __restrict/]) ;
+	my $ac_c_restrict = c_try_keywords('restrict', 'checking for restrict', $code, [qw/restrict __restrict__ __restrict/]) ;
 	return $ac_c_restrict ;
 }
 
@@ -717,7 +751,7 @@ main ()
 }
 _ACEOF
 	
-	my $ac_has_header = c_try("checking for $header", $code, $header, '-Wall -Werror') ;
+	my $ac_has_header = c_try($header, "checking for $header", $code, $header, '-Wall -Werror') ;
 	return $ac_has_header ;
 }
 
@@ -768,7 +802,7 @@ return $ac_func ();
 _ACEOF
 	
 #	c_try_link($msg, $code, $ok_val, $cflags, $exec_out_ref, $ld_flags) ;
-	my $ac_has_function = c_try_link("checking for $ac_func", $code, $ac_func, '-Wall -Werror') ;
+	my $ac_has_function = c_try_link($ac_func, "checking for $ac_func", $code, $ac_func, '-Wall -Werror') ;
 	return $ac_has_function ;
 }
 
@@ -785,7 +819,7 @@ int main (void) { return 0; }
 _ACEOF
 	
 #	c_try_link($msg, $code, $ok_val, $cflags, $exec_out_ref, $ld_flags) ;
-	my $ac_has_function = c_try_link("checking for $ac_func", $code, $ac_func, '-Wall -Werror', undef, '-lm') ;
+	my $ac_has_function = c_try_link($ac_func, "checking for $ac_func", $code, $ac_func, '-Wall -Werror', undef, '-lm') ;
 	return $ac_has_function ;
 }
 
@@ -807,7 +841,7 @@ int main (void) { return 0; }
 _ACEOF
 	
 #	c_try_link($msg, $code, $ok_val, $cflags, $exec_out_ref, $ld_flags) ;
-	my $ac_hasnt_function = c_try_link("", $code, $ac_func, '-Wall -Werror', undef, '-lm') ;
+	my $ac_hasnt_function = c_try_link($ac_func, "", $code, $ac_func, '-Wall -Werror', undef, '-lm') ;
 	return $ac_hasnt_function ;
 }
 
@@ -832,7 +866,7 @@ if (sizeof (ac__type_new_))
 }
 _ACEOF
 	
-	my $ac_struct_timeval = c_try("checking for struct timeval", $code, 1) ;
+	my $ac_struct_timeval = c_try('struct tmeval', "checking for struct timeval", $code, 1) ;
 	return $ac_struct_timeval ;
 }
 
@@ -913,7 +947,7 @@ off64_t i = 0 ;
 _ACEOF
 	
 	$ModuleInfo{'config'}{'off64_t'} = "" ;
-	my $ac_off64_t = c_try("checking for off64_t support", $code, 1) ;
+	my $ac_off64_t = c_try('off64_t', "checking for off64_t support", $code, 1) ;
 	if (!$ac_off64_t)
 	{
 		$ModuleInfo{'config'}{'off64_t'} = "#define off64_t off_t" ;
@@ -943,7 +977,7 @@ _ACEOF
 	$ModuleInfo{'config'}{'lseek64'} = "" ;
 
 #	c_try_link($msg, $code, $ok_val, $cflags, $exec_out_ref, $ld_flags) ;
-	my $ac_lseek64 = c_try_link("checking for lseek64", $code, 1) ;
+	my $ac_lseek64 = c_try_link('lseek64', "checking for lseek64", $code, 1) ;
 	if (!$ac_lseek64)
 	{
 		$ModuleInfo{'config'}{'lseek64'} = "#define lseek64 lseek" ;
@@ -961,10 +995,10 @@ sub have_h
 	$notval = "" unless defined($notval) ;
 
 	my $def ;
-	if ($key && exists($Config{$key}))
-	{
-		$def = $Config{$key} ;	
-	}
+#	if ($key && exists($Config{$key}))
+#	{
+#		$def = $Config{$key} ;	
+#	}
 	
 	if (!$def)
 	{
@@ -981,7 +1015,7 @@ sub have_h
 	
 	my $str = "#$def $name " . ($def eq 'define' ? $val : $notval) ;
 	$ModuleInfo{'config'}{$name} = $str ;
-	
+
 	return $str ;
 }
 
@@ -1026,39 +1060,6 @@ sub havent_d
 
 
 
-
-##-------------------------------------------------------------------------------------------
-sub have_h
-{
-	my ($key, $header, $name, $val, $notval) = @_ ;
-	
-	$val = "1" unless defined($val) ;
-	$notval = "" unless defined($notval) ;
-
-	my $def ;
-#	if ($key && exists($Config{$key}))
-#	{
-#		$def = $Config{$key} ;	
-#	}
-	
-	if (!$def)
-	{
-		my $has = c_has_header($header) ;
-		if ($has)
-		{
-			$def = 'define' ;
-		}
-	}
-	if (!$def)
-	{
-		$def = 'undef' ;
-	}
-	
-	my $str = "#$def $name " . ($def eq 'define' ? $val : $notval) ;
-	$ModuleInfo{'config'}{$name} = $str ;
-
-	return $str ;
-}
 
 ##-------------------------------------------------------------------------------------------
 sub have_func
@@ -1290,8 +1291,6 @@ sub get_endian
 ##-------------------------------------------------------------------------------------------
 sub get_config
 {
-#	my %current_config ;
-	
 	$ModuleInfo{'config'} = {} ;
 	
 	# Arch
@@ -1400,10 +1399,10 @@ MAKEMAKERDFLT
 		}
 		
 		# Check for comment
-		if (exists($ModuleInfo{'COMMENTS'}{$var}))
-		{
-			$val .= "  ($ModuleInfo{'COMMENTS'}{$var})" ;
-		}
+#		if (exists($ModuleInfo{'COMMENTS'}{$var}))
+#		{
+#			$val .= "  ($ModuleInfo{'COMMENTS'}{$var})" ;
+#		}
 		$make .= "\t\$(NOECHO) \$(ECHO) \"$padded $val\"\n" ;
 	}
 	$make .= "\t\$(NOECHO) \$(ECHO) ==================================================================\n" ;
