@@ -25,6 +25,10 @@
 
 #define ARCH_X86
 
+/* Operating system */
+#define OS_LINUX
+
+
 /* maximum supported data alignment */
 #define ATTRIBUTE_ALIGNED_MAX 32
 

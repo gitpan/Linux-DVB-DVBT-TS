@@ -1,5 +1,8 @@
 Revision history for Perl extension Linux::DVB::DVBT::TS.
 
+0.06  Mon Mar 21 14:34:00 2011
+	- modified makefile to fix building on multiple platforms (lrintf and arch detection)
+		
 0.05  Tue Mar 15 19:45:00 2011
 	- debugging problems with building on multiple platforms (inline & lrintf)
 		

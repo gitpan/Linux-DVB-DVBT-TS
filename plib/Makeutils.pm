@@ -66,7 +66,7 @@ our @EXPORT = qw/
 #============================================================================================
 # GLOBALS
 #============================================================================================
-our $VERSION = '1.02' ;
+our $VERSION = '1.04' ;
 our $DEBUG ;
 
 our %ModuleInfo ;
@@ -1141,11 +1141,7 @@ sub _chk_arch_name
 
 	my $arch = "" ;
 
-	if ($arch_name =~ /i.86\-.*|k.\-.*|x86_64\-.*|x86\-.*|amd64\-.*|x86/i)
-	{
-		$arch = "ARCH_X86" ;
-	}
-	elsif ($arch_name =~ /ppc\-.*|powerpc\-.*/i)
+	if ($arch_name =~ /ppc\-.*|powerpc\-.*/i)
 	{
 		$arch = "ARCH_PPC" ;
 		
@@ -1163,12 +1159,12 @@ sub _chk_arch_name
 	{
 		$arch = "ARCH_ARM" ;
 	}
-
-	# keep trying with slightly relaxed regexps
-	elsif ($arch_name =~ /i.86.*|k..*|x86_64.*|x86.*|amd64.*|x86/i)
+	elsif ($arch_name =~ /i.86\-.*|k.\-.*|x86_64\-.*|x86\-.*|amd64\-.*|x86/i)
 	{
 		$arch = "ARCH_X86" ;
 	}
+
+	# keep trying with slightly relaxed regexps
 	elsif ($arch_name =~ /ppc.*|powerpc.*/i)
 	{
 		$arch = "ARCH_PPC" ;
@@ -1178,6 +1174,10 @@ sub _chk_arch_name
 	elsif ($arch_name =~ /sparc*|sparc64.*/i)
 	{
 		$arch = "ARCH_SPARC" ;
+	}
+	elsif ($arch_name =~ /i.86.*|x86_64.*|x86.*|amd64.*|x86/i)
+	{
+		$arch = "ARCH_X86" ;
 	}
 	
 	return $arch ;
@@ -1200,6 +1200,7 @@ sub arch_name
 		if ($^O ne 'MSWin32')
 		{
 			$arch_name = `uname -a` ;
+			chomp $arch_name ;
 			$arch = _chk_arch_name($arch_name) ;
 			$ModuleInfo{'COMMENTS'}{'ARCH'} = "uname = $arch_name" ;
 		}
@@ -1295,6 +1296,9 @@ sub get_config
 	
 	# Arch
 	arch_name() ;
+
+	# OS
+	$ModuleInfo{'config'}{'OS'} = uc("OS_" . $^O) ;
 
 	# Alignment
 	get_align() ;
@@ -1405,8 +1409,8 @@ MAKEMAKERDFLT
 #		}
 		$make .= "\t\$(NOECHO) \$(ECHO) \"$padded $val\"\n" ;
 	}
-	$make .= "\t\$(NOECHO) \$(ECHO) ==================================================================\n" ;
-	$make .= "\t\$(NOECHO) \$(ECHO)\n" ;
+	$make .= "\t\$(NOECHO) \$(ECHO) \"==================================================================\"\n" ;
+	$make .= "\t\$(NOECHO) \$(ECHO) \"==\" \n" ;
 
 	return $make ;
 }

@@ -160,6 +160,10 @@ sub create_libmpeg2_config_h
 
 #define $current_config{ARCH}
 
+/* Operating system */
+#define $current_config{OS}
+
+
 /* maximum supported data alignment */
 #define ATTRIBUTE_ALIGNED_MAX $current_config{ALIGN_BYTES}
 
@@ -332,6 +336,10 @@ sub create_mpeg2audio_config_h
 
 #define $current_config{ARCH}
 
+/* Operating system */
+#define $current_config{OS}
+
+
 /* maximum supported data alignment */
 #define ATTRIBUTE_ALIGNED_MAX $current_config{ALIGN_BYTES}
 
@@ -348,7 +356,8 @@ $current_config{HAVE_BUILTIN_EXPECT}
 $current_config{HAVE_FTIME}
 
 /* Define to 1 if you have the `lrintf' function. */
-$current_config{HAVE_LRINTF}
+/* $current_config{HAVE_LRINTF} */
+#define HAVE_LRINTF 1
 
 
 
@@ -546,6 +555,10 @@ sub create_ts_config_h
 	
 /* Architecture */
 #define $current_config{ARCH}
+
+/* Operating system */
+#define $current_config{OS}
+
 
 /* Define to 1 if you have the <inttypes.h> header file. */
 $current_config{HAVE_INTTYPES_H}

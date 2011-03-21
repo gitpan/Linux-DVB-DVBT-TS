@@ -25,6 +25,10 @@
 
 #define ARCH_X86
 
+/* Operating system */
+#define OS_LINUX
+
+
 /* maximum supported data alignment */
 #define ATTRIBUTE_ALIGNED_MAX 32
 
@@ -41,6 +45,7 @@
 #define HAVE_FTIME 1
 
 /* Define to 1 if you have the `lrintf' function. */
+/* #define HAVE_LRINTF 1 */
 #define HAVE_LRINTF 1
 
 
