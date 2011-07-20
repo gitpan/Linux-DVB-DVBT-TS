@@ -280,3 +280,15 @@ dvb_ts_error_str()
 	OUTPUT:
      	 RETVAL
 
+# /*---------------------------------------------------------------------------------------------------*/
+# /* Return error code : 0 = no error */
+
+int
+dvb_ts_error()
+
+	CODE:
+		RETVAL = dvb_error_code ;
+
+	OUTPUT:
+     	 RETVAL
+

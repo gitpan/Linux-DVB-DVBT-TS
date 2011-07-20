@@ -39,14 +39,20 @@ our $VERSION = '1.000' ;
 	## Now repair the file
 	my %stats = repair($filename, $ofilename, \&error_display) ;
 	
-
-	print "Repair statistics:\n" ;
-	foreach my $pid (sort {$a <=> $b} keys %stats)
+	if ($stats{'error'})
 	{
-		print "  PID $pid : $stats{$pid}{'errors'} errors repaired\n" ;
-		foreach my $error_str (sort keys %{$stats{$pid}{'details'}})
+		print "Error: $stats{'error'}\n" ;
+	}
+	else
+	{
+		print "Repair statistics:\n" ;
+		foreach my $pid (sort {$a <=> $b} keys %stats)
 		{
-			print "   * $error_str ($stats{$pid}{'details'}{$error_str})\n" ;
+			print "  PID $pid : $stats{$pid}{'errors'} errors repaired\n" ;
+			foreach my $error_str (sort keys %{$stats{$pid}{'details'}})
+			{
+				print "   * $error_str ($stats{$pid}{'details'}{$error_str})\n" ;
+			}
 		}
 	}
 	print "\n" ;

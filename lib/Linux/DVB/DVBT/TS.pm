@@ -449,7 +449,7 @@ our @EXPORT = qw/
 #============================================================================================
 # GLOBALS
 #============================================================================================
-our $VERSION = '0.06' ;
+our $VERSION = '0.07' ;
 our $DEBUG = 0 ;
 
 #============================================================================================
@@ -493,6 +493,9 @@ B<details> => HASH where the keys are the error reason string, and the values
 
 =back
 
+If any runtime error occurs (e.g. unable to read file), then an error string is added
+to the HASH with the field 'error'. 
+
 $error_display is an optional callback routine (see L</Error callback>)
 
 At the moment "repair" is probably an overstatement. What this currently does is just dump
@@ -516,6 +519,7 @@ sub repair
 		},
 	) ;
 	croak "Unable to read \"$src\"" unless -f $src ;
+	croak "Zero-length file \"$src\"" unless -s $src ;
 	croak "Must specify a destination filename" unless $dest ;
 	
 	## Ensure dest dir is present
@@ -527,6 +531,12 @@ sub repair
 	
 	## repair
 	Linux::DVB::DVBT::TS::dvb_ts_repair($src, $dest, \%settings) ;
+	
+	if (Linux::DVB::DVBT::TS::dvb_ts_error())
+	{
+		$stats{'error'} = Linux::DVB::DVBT::TS::dvb_ts_error_str() ;
+		$stats{'errorcode'} = Linux::DVB::DVBT::TS::dvb_ts_error() ;
+	}
 	
 	return %stats ;
 }
@@ -545,6 +555,9 @@ sub parse
 	my ($src, $settings_href) = @_ ;
 
 	croak "Unable to read \"$src\"" unless -f $src ;
+	croak "Zero-length file \"$src\"" unless -s $src ;
+
+	$settings_href ||= {} ;
 	Linux::DVB::DVBT::TS::dvb_ts_parse($src, $settings_href) ;
 }
 
@@ -625,6 +638,7 @@ sub info
 	}
 	else
 	{
+		$settings_href ||= {} ;
 		$info_href = Linux::DVB::DVBT::TS::dvb_ts_info($src, $settings_href) ;
 	}
 
@@ -663,6 +677,7 @@ sub ts_cut
 	my ($src, $dest, $cuts_aref, $settings_href) = @_ ;
 	
 	croak "Unable to read \"$src\"" unless -f $src ;
+	croak "Zero-length file \"$src\"" unless -s $src ;
 	croak "Must specify a destination filename" unless $dest ;
 	
 	## Ensure dest dir is present
@@ -676,10 +691,11 @@ sub ts_cut
 	croak "Must specify a cuts list array ref" unless ref($cuts_aref) eq 'ARRAY' ;
 	
 	## run command
-	my $rc = dvb_ts_cut($src, $dest, $cuts_aref, $settings_href) ;
+	$settings_href ||= {} ;
+	my $rc = Linux::DVB::DVBT::TS::dvb_ts_cut($src, $dest, $cuts_aref, $settings_href) ;
 	if ($rc)
 	{
-		croak "Error while running ts_cut() : " . dvb_ts_error_str() ;
+		croak "Error while running ts_cut() : " . Linux::DVB::DVBT::TS::dvb_ts_error_str() ;
 	}
 	
 }
@@ -724,6 +740,7 @@ sub ts_split
 	my ($src, $dest, $cuts_aref, $settings_href) = @_ ;
 	
 	croak "Unable to read \"$src\"" unless -f $src ;
+	croak "Zero-length file \"$src\"" unless -s $src ;
 	croak "Must specify a destination filename" unless $dest ;
 	
 	## Ensure dest dir is present
@@ -735,12 +752,14 @@ sub ts_split
 	
 	## check cuts
 	croak "Must specify a cuts list array ref" unless ref($cuts_aref) eq 'ARRAY' ;
+	croak "Must specify a non-empty cuts list array ref" unless @$cuts_aref ;
 	
 	## run command
-	my $rc = dvb_ts_split($src, $dest, $cuts_aref, $settings_href) ;
+	$settings_href ||= {} ;
+	my $rc = Linux::DVB::DVBT::TS::dvb_ts_split($src, $dest, $cuts_aref, $settings_href) ;
 	if ($rc)
 	{
-		croak "Error while running ts_split() : " . dvb_ts_error_str() ;
+		croak "Error while running ts_split() : " . Linux::DVB::DVBT::TS::dvb_ts_error_str() ;
 	}
 }
 
@@ -755,7 +774,7 @@ string that (hopefully) makes more sense than an error code integer.
 
 sub error_str
 {
-	return dvb_ts_error_str() ;
+	return Linux::DVB::DVBT::TS::dvb_ts_error_str() ;
 }
 
 
@@ -767,7 +786,7 @@ sub error_str
 #-----------------------------------------------------------------------------
 sub _repair_error_callback
 {
-	my ($info_href, $user_href) = @_ ;
+	my ($tsreader, $info_href, $user_href) = @_ ;
 
 	## callback user-provided
 	my $error_display = $user_href->{'error_display'} ;

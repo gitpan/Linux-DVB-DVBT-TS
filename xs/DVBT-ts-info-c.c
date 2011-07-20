@@ -15,6 +15,7 @@ struct TS_reader *tsinfo(char *filename, struct TS_settings *settings)
 {
 int file;
 struct TS_reader *tsreader ;
+unsigned pkt_num ;
 
 	tsreader = tsreader_new(filename) ;
     if (!tsreader)
@@ -26,13 +27,23 @@ struct TS_reader *tsreader ;
 	// only support the following standard settings - NO CALLBACKS (so no need for hook data)!
 	tsreader->debug = settings->debug ;
 
-	// parse data - start
-	tsreader_setpos(tsreader, 0, SEEK_SET, 1300) ;
-    ts_parse(tsreader) ;
+	pkt_num = 1300 ;
+	if (tsreader->tsstate->total_pkts <= 2*pkt_num)
+	{
+		// Short file - parse the lot
+		tsreader_setpos(tsreader, 0, SEEK_SET, tsreader->tsstate->total_pkts) ;
+		ts_parse(tsreader) ;
+	}
+	else
+	{
+		// parse data - start
+		tsreader_setpos(tsreader, 0, SEEK_SET, 1300) ;
+		ts_parse(tsreader) ;
 
-	// parse data - end
-	tsreader_setpos(tsreader, -1300, SEEK_END, 1300) ;
-    ts_parse(tsreader) ;
+		// parse data - end
+		tsreader_setpos(tsreader, -1300, SEEK_END, 1300) ;
+		ts_parse(tsreader) ;
+	}
 
     // update the timing
     tsreader_set_timing(tsreader) ;

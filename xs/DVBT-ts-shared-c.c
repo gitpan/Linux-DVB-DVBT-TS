@@ -29,6 +29,11 @@
 		SET_ERROR(RETVAL, ERR_INVALID_TSREADER) ;\
 	}
 
+#define SET_CALLBACK(NAME)	\
+	if (settings->NAME##_callback) \
+		tsreader->NAME##_hook = parse_##NAME##_hook
+
+
 //========================================================================================================
 // Settings
 //========================================================================================================
@@ -649,23 +654,34 @@ struct TS_reader *tsreader ;
 
 	tsreader->debug = settings->debug ;
 
-	tsreader->pid_hook = parse_pid_hook ;
-	tsreader->error_hook = parse_error_hook ;
-	tsreader->payload_hook = parse_payload_hook ;
-	tsreader->ts_hook = parse_ts_hook ;
-	tsreader->pes_hook = parse_pes_hook ;
-	tsreader->pes_data_hook = parse_pes_data_hook ;
-	tsreader->progress_hook = parse_progress_hook ;
-	tsreader->audio_hook = parse_audio_hook ;
+//	if (settings->pid_callback)
+//		tsreader->pid_hook = parse_pid_hook ;
+	SET_CALLBACK(error) ;
+	SET_CALLBACK(payload) ;
+	SET_CALLBACK(ts) ;
+	SET_CALLBACK(pes) ;
+	SET_CALLBACK(pes_data) ;
+	SET_CALLBACK(progress) ;
+	SET_CALLBACK(audio) ;
+	SET_CALLBACK(mpeg2) ;
+	SET_CALLBACK(mpeg2_rgb) ;
 
-	if (settings->mpeg2_callback)
-	{
-		tsreader->mpeg2_hook = parse_mpeg2_hook ;
-	}
-	else if (settings->mpeg2_rgb_callback)
-	{
-		tsreader->mpeg2_rgb_hook = parse_mpeg2_rgb_hook ;
-	}
+//	tsreader->error_hook = parse_error_hook ;
+//	tsreader->payload_hook = parse_payload_hook ;
+//	tsreader->ts_hook = parse_ts_hook ;
+//	tsreader->pes_hook = parse_pes_hook ;
+//	tsreader->pes_data_hook = parse_pes_data_hook ;
+//	tsreader->progress_hook = parse_progress_hook ;
+//	tsreader->audio_hook = parse_audio_hook ;
+//
+//	if (settings->mpeg2_callback)
+//	{
+//		tsreader->mpeg2_hook = parse_mpeg2_hook ;
+//	}
+//	else if (settings->mpeg2_rgb_callback)
+//	{
+//		tsreader->mpeg2_rgb_hook = parse_mpeg2_rgb_hook ;
+//	}
 
 	tsreader->user_data = hook_data ;
 

@@ -1,4 +1,4 @@
-/* i586-linux-thread-multi */
+/* i486-linux-gnu-thread-multi */
 #ifndef CONFIG_H
 #define CONFIG_H
 	

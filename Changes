@@ -1,5 +1,9 @@
 Revision history for Perl extension Linux::DVB::DVBT::TS.
 
+0.07  Wed Jul 20 15:22:00 2011
+	- Added auto-generated parse files to handle all SI tables & descriptors in ETSI 300-468
+	- Improved ts parse file checking and error handling
+		
 0.06  Mon Mar 21 14:34:00 2011
 	- modified makefile to fix building on multiple platforms (lrintf and arch detection)
 		

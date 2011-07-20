@@ -16,9 +16,9 @@ use Makeutils ;
 	
 	#print STDERR Data::Dumper->Dump(["Info", \%Makeutils::ModuleInfo]) ;
 	
-	diag_ctry('lrintf') ;
-	diag_ctry('inline') ;
-	diag_ctry('always_inline') ;
+#	diag_ctry('lrintf') ;
+#	diag_ctry('inline') ;
+#	diag_ctry('always_inline') ;
 
 	diag("######################################################") ;
 	pass('all ok') ;

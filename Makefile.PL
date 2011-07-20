@@ -38,7 +38,6 @@ use Makeutils ;
 	
 	## Add libraries
 	add_clibs($clib, {
-		'dvb_lib'		=> {'mkf' => 'Subdir-min.mk'},
 		'dvb_ts_lib'	=> { 
 			'config'		=> {
 				'file'			=> 'config.h',
@@ -64,6 +63,10 @@ use Makeutils ;
 		add_objects($clib, [qw(libmpeg2/motion_comp_arm_s.o)]) ;
 	}
 
+
+	## Do any cleanup
+	process_makeopts() ;
+	
 	
 	## Write Makefile
 	my $MYEXTLIB = 'clib/dummy_lib$(LIB_EXT)' ;

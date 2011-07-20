@@ -40,6 +40,8 @@ our @EXPORT = qw/
 	add_install_progs
 	add_defines
 	get_makeopts
+	process_makeopts
+	update_manifest
 	add_objects
 	add_clibs
 	c_try
@@ -66,8 +68,9 @@ our @EXPORT = qw/
 #============================================================================================
 # GLOBALS
 #============================================================================================
-our $VERSION = '1.04' ;
-our $DEBUG ;
+our $VERSION = '1.07' ;
+our $DEBUG = 0 ;
+our $UPDATE_MANIFEST = 0 ;
 
 our %ModuleInfo ;
 
@@ -182,7 +185,7 @@ EOW
 	}
 	
 	$progs_aref ||= [] ;
-	$ModuleInfo{'programs'} = [ map "$basedir/$_", @$progs_aref ] ;
+	$ModuleInfo{'programs'} = [ map "$basedir$_", @$progs_aref ] ;
 	
 	return @$progs_aref ;
 }
@@ -214,7 +217,7 @@ sub add_defines
 sub get_makeopts
 {
 	## -D = debug 
-	my $DEBUG = 0 ;
+	$Makeutils::DEBUG = 0 ;
 	if ( 
 		grep $_ eq '-D', @main::ARGV
 	) 
@@ -237,8 +240,145 @@ sub get_makeopts
 		$ModuleInfo{'OPTIMIZE'} = '-ggdb -O0' ;
 	} 
 	
+	## -M = udpate MANIFEST 
+	$Makeutils::UPDATE_MANIFEST = 0 ;
+	if ( 
+		grep $_ eq '-M', @main::ARGV
+	) 
+	{
+		$Makeutils::UPDATE_MANIFEST = 1 ;
+	} 
+	
 }
 
+
+##-------------------------------------------------------------------------------------------
+sub process_makeopts
+{
+	if ($Makeutils::UPDATE_MANIFEST)
+	{
+		update_manifest() ;
+	}	
+}
+
+##-------------------------------------------------------------------------------------------
+sub update_manifest
+{
+	## Read file
+	my %manifest ;
+	my $line ;
+	open my $fh, "<MANIFEST" or die "Error: Unable to read MANIFEST file" ;
+	while(defined($line = <$fh>))
+	{
+		chomp $line ;
+		$line =~ s/[^[:ascii:]]/ /g;
+		$line =~ s/^\s+// ;
+		$line =~ s/\s+$// ;
+		$line =~ s/^#.*// ;
+		next unless $line ;
+
+		$manifest{$line} = 1 ;		
+	}
+	close $fh ;
+	
+	## Build expected list
+	my @expected = qw(
+		MANIFEST
+		README
+		COPYING
+		Changes
+		Makefile.PL
+		plib/Makeutils.pm
+		ppport.h
+		typemap
+	) ;
+	
+	# xs
+	push @expected, "$ModuleInfo{'root'}.xs" ;
+	push @expected, find_recurse("xs", "*.xs") ;
+	
+	# t
+	push @expected, find_recurse("t", "*.t") ;
+	
+	# scripts
+	push @expected, @{$ModuleInfo{'programs'}} ;
+	
+	# Perl
+	push @expected, find_recurse("lib", "*.pm") ;
+	
+	# C
+	push @expected, find_recurse("clib", "*.c") ;
+	push @expected, find_recurse("clib", "*.h") ;
+	
+	
+	## Find any missing
+	my @missing ;
+	foreach my $file (@expected)
+	{
+		if (!exists($manifest{$file}))
+		{
+			push @missing, $file ;
+		}
+	}
+
+	print "\nUpdating MANIFEST\n" ;
+	print   "=================\n" ;
+	if (@missing)
+	{
+		## Append
+		open my $fh, ">>MANIFEST" or die "Error: Unable to write to MANIFEST file" ;
+		print $fh "\n\n## Missing files:\n" ;
+		foreach my $file (@missing)
+		{
+			print $fh "$file\n" ;
+		}
+		close $fh ;
+		
+		print "Appended ", scalar(@missing), " files:\n" ;
+		foreach my $file (@missing)
+		{
+			print "  $file\n" ;
+		}
+	}
+	else
+	{
+		print "No files missing\n" ;
+	}
+	
+	
+	print "\nAll Files:\n" ;
+	foreach my $file (@expected)
+	{
+		print "  $file\n" ;
+	}
+	
+	exit 0 ;
+}
+
+##-------------------------------------------------------------------------------------------
+sub find_recurse
+{
+	my ($dir, $spec) = @_ ;
+	my @files = () ;
+	
+	# depth last
+	foreach my $f (glob("$dir/$spec"))
+	{
+		if (-f $f)
+		{
+			push @files, $f ;
+		}
+	}
+	foreach my $d (glob("$dir/*"))
+	{
+		if (-d $d)
+		{
+			push @files, find_recurse($d, $spec) ;
+		}
+	}
+	
+	return @files ;
+}
 
 ##-------------------------------------------------------------------------------------------
 sub add_objects
@@ -277,6 +417,8 @@ sub add_clibs
 {
 	my ($basedir, $clibs_href) = @_ ;
 
+	print "add_clibs($basedir)\n" if $DEBUG ;
+	
 	## Include makefiles & get objects
 	print "Including makefiles from sub libraries:\n" ;
 	foreach my $lib (keys %$clibs_href)
@@ -292,15 +434,24 @@ sub add_clibs
 		print " * $lib ... " ;
 		my $mkf = "$libdir/" ;
 		my $specified_mkf = 0 ;
-		if ( (ref($clibs_href->{$lib}) eq 'HASH') && (exists($clibs_href->{$lib}{'mkf'})) )
+		if ( ref($clibs_href->{$lib}) eq 'HASH')
 		{
-			++$specified_mkf ;
-			$mkf .= $clibs_href->{$lib}{'mkf'} ;
+			if ( exists($clibs_href->{$lib}{'mkf'})) 
+			{
+				++$specified_mkf ;
+				$mkf .= $clibs_href->{$lib}{'mkf'} ;
+			}
+			else
+			{
+				$mkf .= 'Subdir.mk' ;
+			}
 		}
 		else
 		{
 			$mkf .= 'Subdir.mk' ;
 		}
+
+	print "\n * * mkf = $mkf\n" if $DEBUG ;
 		
 		## read file
 		if (-f $mkf)
@@ -355,7 +506,7 @@ sub add_clibs
 		}
 		
 		## check for any include subdirs
-		for my $incdir (qw/include inc h/)
+		for my $incdir (qw/include inc h shared/)
 		{
 			if (-d "$libdir$incdir")
 			{
