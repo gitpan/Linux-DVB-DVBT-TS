@@ -101,7 +101,7 @@ struct Pics_user_data {
 //
 static void save_ppm (char *fmt, int width, int height, uint8_t * buf, int num)
 {
-    char filename[100];
+    char filename[2048];
     FILE * ppmfile;
 
     sprintf (filename, fmt, num);

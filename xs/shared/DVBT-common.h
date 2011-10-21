@@ -25,7 +25,8 @@
 #define HVSN_I(h, sp, name, key)		if (sp->name >= 0) hv_store(h, #key, sizeof(#key)-1, newSViv(sp->name), 0)
 
 /* Convert string before storing in hash */
-#define HVS_STRING(h, sp, name)		hv_store(h, #name, sizeof(#name)-1, newSVpv(_to_string(sp->name), 0), 0)
+#define HVS_STRING(h, sp, name)			hv_store(h, #name, sizeof(#name)-1, newSVpv(_to_string(sp->name), 0), 0)
+#define HVS_STRING_STRIP(h, sp, name)	hv_store(h, #name, sizeof(#name)-1, newSVpv(_to_string_strip(sp->name), 0), 0)
 
 /* non-struct member versions */
 #define HVS_INT(h, name, i)		hv_store(h, #name, sizeof(#name)-1, newSViv(i), 0)
@@ -79,12 +80,14 @@
 
 
 /*---------------------------------------------------------------------------------------------------*/
+// Copies string into a static area so it can be used for creating Perl hash entries
+#define TO_STRING_MAX		8191
+static char ret_str[TO_STRING_MAX+1] ;
 static char *_to_string(char *str)
 {
 int i, j, len = strlen(str);
-static char ret_str[8192] ;
 
-   for (i=0, j=0; i < len; i++)
+   for (i=0, j=0; (i < len) && (i < TO_STRING_MAX); i++)
    {
 	   ret_str[j++] = str[i] ;
 
@@ -92,5 +95,47 @@ static char ret_str[8192] ;
 	   ret_str[j] = 0 ;
    }
    return ret_str ;
+}
+
+/*---------------------------------------------------------------------------------------------------*/
+// Copies string into a static area so it can be used for creating Perl hash entries. Also strips out
+// any invalid chars
+static unsigned valid_char[0xff] ;
+static unsigned valid_char_init = 0 ;
+static char *_to_string_strip(char *str)
+{
+int i, j, len = strlen(str);
+
+	// set up lookup table once
+	if (!valid_char_init)
+	{
+		for (i=0; (i < 0xff); i++)
+		{
+			valid_char[i] = 0 ;
+			if (
+				((i >= ' ') && (i <= '~'))
+				|| (i == '\n')
+				|| (i == '\r')
+				|| (i == 0)
+			)
+			{
+				valid_char[i] = 1 ;
+			}
+		}
+		valid_char_init = 1 ;
+	}
+
+	// copy valid chars to destination
+	for (i=0, j=0; (i < len) && (i < TO_STRING_MAX); i++)
+	{
+		if (valid_char[(unsigned char)(str[i]) & 0xff])
+		{
+			ret_str[j++] = str[i] ;
+		}
+
+		/* terminate */
+		ret_str[j] = 0 ;
+	}
+	return ret_str ;
 }
 

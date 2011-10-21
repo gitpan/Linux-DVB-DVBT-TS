@@ -1,6 +1,6 @@
 --- #YAML:1.0
 name:               Linux-DVB-DVBT-TS
-version:            0.07
+version:            0.08
 abstract:           Transport Stream utilities 
 author:
     - Steve Price <cpan@sdprice.plus.com>

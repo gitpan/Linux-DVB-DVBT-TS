@@ -45,9 +45,15 @@ struct TS_cut {
 #define UNSET_CUT_LIST	(struct TS_cut *)-1
 #define END_CUT_LIST	(struct TS_cut *)-2
 
+#define MAX_PATH_LEN	2048
+#define MAX_EXT_LEN		8
+
+#define TS_CUTDATA_MAGIC	0x44556677
 
 // data passed into hooks
 struct TS_cut_data {
+	unsigned			magic ;
+
 	// general
 	struct TS_settings	*settings ;
 
@@ -57,8 +63,8 @@ struct TS_cut_data {
 	int split_count ;
 	unsigned split_pkt ;
 
-	char fname[256] ;
-	char ofname[256] ;
+	char fname[MAX_PATH_LEN+MAX_EXT_LEN+1] ;
+	char ofname[MAX_PATH_LEN+MAX_EXT_LEN+1] ;
 	int cut_file ;
 
 	// cut list
@@ -69,6 +75,8 @@ struct TS_cut_data {
 
     // pointer to the reader
     struct TS_reader *tsreader ;
+
+    unsigned 		magic_end ;
 } ;
 
 
